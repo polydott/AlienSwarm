@@ -133,7 +133,6 @@ public:
 	virtual float GetPassiveMeleeDamageScale() { return 1.0f; }
 
 	virtual void OnStoppedFiring();
-	virtual void OnStartedRoll();
 	virtual void ClearIsFiring();
 	bool m_bIsFiring;
 	float m_fTurnRateModifier;

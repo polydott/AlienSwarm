@@ -762,7 +762,7 @@ void ClientModeASW::LevelInit( const char *newmap )
 	}
 	else
 	{
-		::input->CAM_ToThirdPerson();
+		::input->CAM_ToFirstPerson();//	::input->CAM_ToThirdPerson();
 		// create a black panel to fade in
 		FadeInPanel *pFadeIn = dynamic_cast<FadeInPanel*>(GetViewport()->FindChildByName("FadeIn", true));
 		if (pFadeIn)
@@ -861,7 +861,7 @@ void ClientModeASW::LevelShutdown( void )
 	m_hInGameBriefingFrame = NULL;
 	m_aAwardedExperience.Purge();
 	// asw make sure the cam is in third person mode, so we don't load new maps with long laggy first person view
-	::input->CAM_ToThirdPerson();
+	::input->CAM_ToFirstPerson();//	::input->CAM_ToThirdPerson();
 
 	m_fNextProgressUpdate = 0;
 }

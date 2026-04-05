@@ -18,7 +18,7 @@ void ASW_StoreLineCircle(int index, float alien_x, float alien_y, float alien_ra
 void ASW_GetLineCircle(int index, float &alien_x, float &alien_y, float &alien_radius, float &marine_x, float &marine_y, Vector2D &LineDir, int &iCol);
 void ASW_StoreClearAll();
 
-bool MarineControllingTurret();
+bool MarineDidPrice();//by price
 
 bool HUDTraceToWorld(float screenx, float screeny, Vector &HitLocation, bool bUseMarineHull=false);
 C_BaseEntity* HUDToWorld(float screenx, float screeny,

@@ -288,12 +288,31 @@ void CASWInput::CAM_Think( void )
 void CASWInput::CAM_ToThirdPerson(void)
 {
 	asw_hide_local_marine.SetValue(0);
+
+	CASW_Player* pPlayer = ToASW_Player(C_BasePlayer::GetLocalPlayer());
+
+	if (pPlayer && pPlayer->GetMarine())
+	{
+		if (pPlayer->GetMarine()->IsEffectActive(EF_NODRAW))
+		{
+			pPlayer->GetMarine()->RemoveEffects(EF_NODRAW);
+		}
+	}
+
 	CInput::CAM_ToThirdPerson();
 }
 
 void CASWInput::CAM_ToFirstPerson(void)
 {
 	asw_hide_local_marine.SetValue(1);
+
+	CASW_Player* pPlayer = ToASW_Player(C_BasePlayer::GetLocalPlayer());
+
+	if (pPlayer && pPlayer->GetMarine())
+	{
+		pPlayer->GetMarine()->AddEffects(EF_NODRAW);
+	}
+
 	CInput::CAM_ToFirstPerson();
 }
 

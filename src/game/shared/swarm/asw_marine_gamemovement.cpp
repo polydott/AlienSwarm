@@ -63,6 +63,8 @@ extern IFileSystem *filesystem;
 	static ConVar marine_dispcoll_drawplane( "marine_dispcoll_drawplane", "0" );
 #endif
 
+#include <rumble_shared.h>
+
 static ConVar asw_marine_gravity( "asw_marine_gravity","800", FCVAR_NOTIFY | FCVAR_REPLICATED, "Marine gravity." );
 static ConVar asw_marine_friction( "asw_marine_friction","10", FCVAR_NOTIFY | FCVAR_REPLICATED, "Marine movement friction." );
 static ConVar asw_sv_maxspeed( "asw_sv_maxspeed", "500", FCVAR_NOTIFY | FCVAR_REPLICATED);
@@ -91,6 +93,8 @@ extern bool g_bMovementOptimizations;
 
 #define CHECK_LADDER_INTERVAL			0.2f
 #define CHECK_LADDER_TICK_INTERVAL		( (int)( CHECK_LADDER_INTERVAL / TICK_INTERVAL ) )
+
+#define CheckV( tick, ctx, vel )
 
 extern void COM_Log( char *pszFile, char *fmt, ...);
 
@@ -342,8 +346,7 @@ bool CASW_MarineGameMovement::CheckInterval( IntervalType_t type )
 //-----------------------------------------------------------------------------
 const Vector& CASW_MarineGameMovement::GetPlayerMins( bool ducked ) const
 {
-	return marine->CollisionProp()->OBBMins();
-	//return ducked ? VEC_DUCK_HULL_MIN : VEC_HULL_MIN;
+	return marine->CollisionProp()->OBBMins(); ducked ? VEC_DUCK_HULL_MIN : VEC_HULL_MIN;
 }
 
 //-----------------------------------------------------------------------------
@@ -353,8 +356,7 @@ const Vector& CASW_MarineGameMovement::GetPlayerMins( bool ducked ) const
 //-----------------------------------------------------------------------------
 const Vector& CASW_MarineGameMovement::GetPlayerMaxs( bool ducked ) const
 {	
-	return marine->CollisionProp()->OBBMaxs();
-	//return ducked ? VEC_DUCK_HULL_MAX : VEC_HULL_MAX;
+	return marine->CollisionProp()->OBBMaxs(); ducked ? VEC_DUCK_HULL_MAX : VEC_HULL_MAX;
 	// TODO: Remove all uses of VEC_HULL_MAX and other defines
 }
 
@@ -365,17 +367,16 @@ const Vector& CASW_MarineGameMovement::GetPlayerMaxs( bool ducked ) const
 //-----------------------------------------------------------------------------
 const Vector& CASW_MarineGameMovement::GetPlayerMins( void ) const
 {
-	return marine->CollisionProp()->OBBMins();
-	//return VEC_HULL_MIN;
+	return marine->CollisionProp()->OBBMins(); VEC_HULL_MIN;
 	
-	//if ( player->IsObserver() )
-	//{
-		//return VEC_OBS_HULL_MIN;	
-	//}
-	//else
-	//{
-		//return player->m_Local.m_bDucked  ? VEC_DUCK_HULL_MIN : VEC_HULL_MIN;
-	//}
+	if ( player->IsObserver() )
+	{
+		return VEC_OBS_HULL_MIN;	
+	}
+	else
+	{
+		return marine->m_bWalking ? VEC_DUCK_HULL_MIN : VEC_HULL_MIN;
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -385,16 +386,15 @@ const Vector& CASW_MarineGameMovement::GetPlayerMins( void ) const
 //-----------------------------------------------------------------------------
 const Vector& CASW_MarineGameMovement::GetPlayerMaxs( void ) const
 {	
-	return marine->CollisionProp()->OBBMaxs();
-	//return VEC_HULL_MAX;
-	//if ( player->IsObserver() )
-	//{
-		//return VEC_OBS_HULL_MAX;	
-	//}
-	//else
-	//{
-		//return player->m_Local.m_bDucked  ? VEC_DUCK_HULL_MAX : VEC_HULL_MAX;
-	//}
+	return marine->CollisionProp()->OBBMaxs(); VEC_HULL_MAX;
+	if ( player->IsObserver() )
+	{
+		return VEC_OBS_HULL_MAX;	
+	}
+	else
+	{
+		return marine->m_bWalking ? VEC_DUCK_HULL_MAX : VEC_HULL_MAX;
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -728,7 +728,7 @@ void CASW_MarineGameMovement::CheckParameters( void )
 	}
 
 	// slow marine down if walk key is held down
-	if ( mv->m_nButtons & IN_WALK )
+	if ( mv->m_nButtons & IN_DUCK )
 	{
 		//Msg("Walking, forward=%f side=%f\n", mv->m_flForwardMove, mv->m_flSideMove);
 		
@@ -745,7 +745,7 @@ void CASW_MarineGameMovement::CheckParameters( void )
 		}
 	}
 
-	marine->m_bWalking = ( mv->m_nButtons & IN_WALK ) != 0;
+	marine->m_bWalking = ( mv->m_nButtons & IN_DUCK ) != 0;
 
 	if ( marine->GetFlags() & FL_FROZEN ||
 		 marine->GetFlags() & FL_ONTRAIN || 
@@ -757,30 +757,6 @@ void CASW_MarineGameMovement::CheckParameters( void )
 	}
 
 	DecayPunchAngle();
-
-	// Take angles from command.
-	if ( !IsDead() )
-	{
-		v_angle = mv->m_vecAngles;
-		//v_angle = v_angle + player->m_Local.m_vecPunchAngle;
-
-		// Now adjust roll angle
-		if ( marine->GetMoveType() != MOVETYPE_ISOMETRIC  &&
-			 marine->GetMoveType() != MOVETYPE_NOCLIP )
-		{
-			mv->m_vecAngles[ROLL]  = CalcRoll( v_angle, mv->m_vecVelocity, sv_rollangle.GetFloat(), sv_rollspeed.GetFloat() );
-		}
-		else
-		{
-			mv->m_vecAngles[ROLL] = 0.0; // v_angle[ ROLL ];
-		}
-		mv->m_vecAngles[PITCH] = v_angle[PITCH];
-		mv->m_vecAngles[YAW]   = v_angle[YAW];
-	}
-	else
-	{
-		mv->m_vecAngles = mv->m_vecOldAngles;
-	}
 
 	// Set dead player view_offset
 	if ( IsDead() )
@@ -1019,10 +995,7 @@ void CASW_MarineGameMovement::CheckWaterJump( void )
 	return;
 #endif
 
-	if ( asw_controls.GetInt() == 1 )
-		AngleVectors( ASWGameRules()->GetTopDownMovementAxis(), &forward ); 
-	else
-		AngleVectors( mv->m_vecViewAngles, &forward );  // Determine movement angles
+	AngleVectors( mv->m_vecViewAngles, &forward );  // Determine movement angles
 
 	// Already water jumping.
 	if (player->GetWaterJumpTime())
@@ -1121,10 +1094,7 @@ void CASW_MarineGameMovement::WaterMove( void )
 	float speed, newspeed, addspeed, accelspeed;
 	Vector forward, right, up;
 
-	if ( asw_controls.GetInt() == 1 )
-		AngleVectors( ASWGameRules()->GetTopDownMovementAxis(), &forward, &right, &up ); 
-	else
-		AngleVectors (mv->m_vecViewAngles, &forward, &right, &up);  // Determine movement angles 
+	AngleVectors (mv->m_vecViewAngles, &forward, &right, &up);  // Determine movement angles 
 
 	//
 	// user intentions
@@ -1482,7 +1452,7 @@ void CASW_MarineGameMovement::AirAccelerate( Vector& wishdir, float wishspeed, f
 	if (player->pl.deadflag)
 		return;
 	
-	if (player->GetWaterJumpTime())
+	if (player->m_flWaterJumpTime)
 		return;
 
 	// Cap speed
@@ -1526,10 +1496,7 @@ void CASW_MarineGameMovement::AirMove( void )
 	float		wishspeed;
 	Vector forward, right, up;
 
-	if ( asw_controls.GetInt() == 1 )
-		AngleVectors( ASWGameRules()->GetTopDownMovementAxis(), &forward, &right, &up ); 
-	else
-		AngleVectors (mv->m_vecViewAngles, &forward, &right, &up);  // Determine movement angles  
+	AngleVectors (mv->m_vecViewAngles, &forward, &right, &up);  // Determine movement angles  
 	
 	// Copy movement amounts
 	fmove = mv->m_flForwardMove;
@@ -1686,10 +1653,7 @@ void CASW_MarineGameMovement::WalkMove( void )
 	trace_t pm;
 	Vector forward, right, up;
 
-	if ( asw_controls.GetInt() == 1 )
-		AngleVectors( ASWGameRules()->GetTopDownMovementAxis(), &forward, &right, &up ); 
-	else
-		AngleVectors (mv->m_vecViewAngles, &forward, &right, &up);  // Determine movement angles  
+	AngleVectors (mv->m_vecViewAngles, &forward, &right, &up);  // Determine movement angles  
 
 	CHandle< CBaseEntity > oldground;
 	oldground = marine->GetGroundEntity();
@@ -2017,24 +1981,6 @@ void CASW_MarineGameMovement::FullJumpJetMove()
 				shake.command = SHAKE_START;
 				ASW_TransmitShakeEvent( player, shake );
 			}
-			/*
-			// scorch the ground
-			trace_t		tr;
-			UTIL_TraceLine ( marine->GetAbsOrigin(), marine->GetAbsOrigin() + Vector( 0, 0, -80 ), MASK_SHOT, 
-				marine, COLLISION_GROUP_NONE, &tr);
-			if ((tr.m_pEnt != GetWorldEntity()) || (tr.hitbox != 0))
-			{
-				// non-world needs smaller decals
-				if( tr.m_pEnt && !tr.m_pEnt->IsNPC() )
-				{
-					UTIL_DecalTrace( &tr, "Rollermine.Crater" );
-				}
-			}
-			else
-			{
-				UTIL_DecalTrace( &tr, "Rollermine.Crater" );
-			}
-			*/
 
 			CASW_Weapon *pWeapon = marine->GetASWWeapon( ASW_INVENTORY_SLOT_EXTRA );
 			CBaseEntity *pInflictor = pWeapon;
@@ -2255,13 +2201,13 @@ void CASW_MarineGameMovement::FullWalkMove( )
 		mv->m_nButtons &= ~IN_JUMP;
 	}
 
-	if ( !CheckWater() ) 
+	if (!CheckWater())
 	{
 		StartGravity();
 	}
 
 	// If we are leaping out of the water, just update the counters.
-	if (player->GetWaterJumpTime())
+	if (player->m_flWaterJumpTime)
 	{
 		WaterJump();
 		TryPlayerMove();
@@ -2272,18 +2218,18 @@ void CASW_MarineGameMovement::FullWalkMove( )
 
 	// If we are swimming in the water, see if we are nudging against a place we can jump up out
 	//  of, and, if so, start out jump.  Otherwise, if we are not moving up, then reset jump timer to 0
-	if ( marine->GetWaterLevel() >= WL_Waist ) 
+	if (marine->GetWaterLevel() >= WL_Waist)
 	{
-		if ( marine->GetWaterLevel() == WL_Waist )
+		if (marine->GetWaterLevel() == WL_Waist)
 		{
 			CheckWaterJump();
 		}
 
-			// If we are falling again, then we must not trying to jump out of water any more.
-		if ( mv->m_vecVelocity[2] < 0 && 
-			 player->GetWaterJumpTime() )
+		// If we are falling again, then we must not trying to jump out of water any more.
+		if (mv->m_vecVelocity[2] < 0 &&
+			player->m_flWaterJumpTime)
 		{
-			player->SetWaterJumpTime(0);
+			player->m_flWaterJumpTime = 0;
 		}
 
 		// Was jump button pressed?
@@ -2303,18 +2249,18 @@ void CASW_MarineGameMovement::FullWalkMove( )
 		CategorizePosition();
 
 		// If we are on ground, no downward velocity.
-		if ( marine->GetGroundEntity() != NULL )
+		if (marine->GetGroundEntity() != NULL)
 		{
-			mv->m_vecVelocity[2] = 0;			
+			mv->m_vecVelocity[2] = 0;
 		}
 	}
 	else
-	// Not fully underwater
+		// Not fully underwater
 	{
 		// Was jump button pressed?
 		if (mv->m_nButtons & IN_JUMP)
 		{
- 			CheckJumpButton();
+			CheckJumpButton();
 		}
 		else
 		{
@@ -2338,11 +2284,7 @@ void CASW_MarineGameMovement::FullWalkMove( )
 		}
 		else
 		{
-			if (asw_debug_air_move.GetBool())
-				Msg("AirMove: Vel=%f,%f,%f\n", mv->m_vecVelocity[0], mv->m_vecVelocity[1], mv->m_vecVelocity[2]);
 			AirMove();  // Take into account movement when in air.
-			if (asw_debug_air_move.GetBool() && marine->GetGroundEntity() == NULL)
-				Msg("  #3 Vel=%f,%f,%f\n", mv->m_vecVelocity[0], mv->m_vecVelocity[1], mv->m_vecVelocity[2]);
 		}
 
 		// Set final flags.
@@ -2352,24 +2294,26 @@ void CASW_MarineGameMovement::FullWalkMove( )
 		CheckVelocity();
 
 		// Add any remaining gravitational component.
-		if ( !CheckWater() )
+		if (!CheckWater())
 		{
 			FinishGravity();
 		}
 
 		// If we are on ground, no downward velocity.
-		if ( marine->GetGroundEntity() != NULL )
+		if (marine->GetGroundEntity() != NULL)
 		{
 			mv->m_vecVelocity[2] = 0;
-		}		
+		}
 		CheckFalling();
-
 	}
 
-	if  ( ( m_nOldWaterLevel == WL_NotInWater && marine->GetWaterLevel() != WL_NotInWater ) ||
-		  ( m_nOldWaterLevel != WL_NotInWater && marine->GetWaterLevel() == WL_NotInWater ) )
+	if ((m_nOldWaterLevel == WL_NotInWater && player->GetWaterLevel() != WL_NotInWater) ||
+		(m_nOldWaterLevel != WL_NotInWater && player->GetWaterLevel() == WL_NotInWater))
 	{
 		PlaySwimSound();
+#if !defined( CLIENT_DLL )
+		player->Splash();
+#endif
 	}
 }
 
@@ -2414,10 +2358,7 @@ void CASW_MarineGameMovement::FullObserverMove( void )
 	Vector wishdir, wishend;
 	float wishspeed;
 
-	if ( asw_controls.GetInt() == 1 )
-		AngleVectors( ASWGameRules()->GetTopDownMovementAxis(), &forward, &right, &up ); 
-	else
-		AngleVectors (mv->m_vecViewAngles, &forward, &right, &up);  // Determine movement angles 
+	AngleVectors (mv->m_vecViewAngles, &forward, &right, &up);  // Determine movement angles 
 	
 	// Copy movement amounts
 
@@ -2497,10 +2438,7 @@ void CASW_MarineGameMovement::FullNoClipMove( float factor, float maxacceleratio
 	float wishspeed;
 	float maxspeed = asw_sv_maxspeed.GetFloat() * factor;
 
-	if ( asw_controls.GetInt() == 1 )
-		AngleVectors( ASWGameRules()->GetTopDownMovementAxis(), &forward, &right, &up ); 
-	else
-		AngleVectors (mv->m_vecViewAngles, &forward, &right, &up);  // Determine movement angles 
+	AngleVectors (mv->m_vecViewAngles, &forward, &right, &up);  // Determine movement angles 
 
 	if ( mv->m_nButtons & IN_SPEED )
 	{
@@ -2591,9 +2529,7 @@ void CASW_MarineGameMovement::DoJumpJet()
 	// In the air now.
 	SetGroundEntity( NULL );
 
-	// fixme: should play from the marine, not the player
-	Vector vecSrc = mv->GetAbsOrigin();
-	player->PlayStepSound( vecSrc, marine->m_pSurfaceData, 1.0, true );
+	player->PlayStepSound((Vector&)mv->GetAbsOrigin(), marine->m_pSurfaceData, 1.0, true);
 
 	// fixme: set the animation on the marine
 	//MoveHelper()->PlayerSetAnimation( PLAYER_JUMP );
@@ -2639,54 +2575,49 @@ void CASW_MarineGameMovement::DoJumpJet()
 	}
 }
 
-extern ConVar asw_marine_rolls;
-
 //-----------------------------------------------------------------------------
-// Checks to see if we should actually jump 
+// Purpose: 
 //-----------------------------------------------------------------------------
-bool CASW_MarineGameMovement::CheckJumpButton( void )
+bool CASW_MarineGameMovement::CheckJumpButton(void)
 {
-	// fixme: don't jump if marine is dead
-	//if (player->pl.deadflag)
-	//{
-		//mv->m_nOldButtons |= IN_JUMP ;	// don't jump again until released
-		//return false;
-	//}
+	if (player->pl.deadflag)
+	{
+		mv->m_nOldButtons |= IN_JUMP;	// don't jump again until released
+		return false;
+	}
+
+	CASW_Player* pASWPlayer = dynamic_cast<CASW_Player*>(player);
+	if (pASWPlayer && pASWPlayer->GetMarine())
+	{
+		pASWPlayer->GetMarine()->DoAnimationEvent(PLAYERANIMEVENT_JUMP);
+	}
 
 	// See if we are waterjumping.  If so, decrement count and return.
-	// fixme: put water jumptime, etc into the marine
-	//if (player->m_flWaterJumpTime)
-	//{
-		//player->m_flWaterJumpTime -= gpGlobals->frametime;
-		//if (player->m_flWaterJumpTime < 0)
-			//player->m_flWaterJumpTime = 0;
-		
-		//return false;
-	//}
+	if (player->m_flWaterJumpTime)
+	{
+		player->m_flWaterJumpTime -= gpGlobals->frametime;
+		if (player->m_flWaterJumpTime < 0)
+			player->m_flWaterJumpTime = 0;
 
-	// No jumping while hacking
-	if ( marine->IsHacking() )
 		return false;
-
-	if ( asw_marine_rolls.GetBool() )
-		return false;
+	}
 
 	// If we are in the water most of the way...
-	if ( marine->GetWaterLevel() >= 2 )
-	{	
+	if (marine->GetWaterLevel() >= 2)
+	{
 		// swimming, not jumping
-		SetGroundEntity( NULL );
+		SetGroundEntity(NULL);
 
-		if(marine->GetWaterType() == CONTENTS_WATER)    // We move up a certain amount
+		if (marine->GetWaterType() == CONTENTS_WATER)    // We move up a certain amount
 			mv->m_vecVelocity[2] = 100;
 		else if (marine->GetWaterType() == CONTENTS_SLIME)
 			mv->m_vecVelocity[2] = 80;
-		
+
 		// play swiming sound
-		if ( player->GetSwimSoundTime() <= 0 )
+		if (player->m_flSwimSoundTime <= 0)
 		{
 			// Don't play sound again for 1 second
-			player->SetSwimSoundTime(1000);
+			player->m_flSwimSoundTime = 1000;
 			PlaySwimSound();
 		}
 
@@ -2694,70 +2625,48 @@ bool CASW_MarineGameMovement::CheckJumpButton( void )
 	}
 
 	// No more effect
- 	if (marine->GetGroundEntity() == NULL || marine->GetAbsVelocity().z > 0)
+	if (marine->GetGroundEntity() == NULL)
 	{
 		mv->m_nOldButtons |= IN_JUMP;
 		return false;		// in air, so no effect
 	}
 
 	// Don't allow jumping when the player is in a stasis field.
-	// asw: irrelevant for marines
-	//if ( player->m_Local.m_bSlowMovement )
-		//return false;
-
-	if ( mv->m_nOldButtons & IN_JUMP )
-		return false;		// don't pogo stick
-
-	if (marine->GetFlags() & FL_FROZEN)	// no jumping when frozen
+	if (player->m_Local.m_bSlowMovement)
 		return false;
 
+	if (mv->m_nOldButtons & IN_JUMP)
+		return false;		// don't pogo stick
+
 	// Cannot jump will in the unduck transition.
-	// asw: irrelevant for marines (since they don't duck atm)
-	//if ( player->m_Local.m_bDucking && (  player->GetFlags() & FL_DUCKING ) )
-		//return false;
+	if (player->m_Local.m_bDucking && (player->GetFlags() & FL_DUCKING))
+		return false;
 
 	// Still updating the eye position.
-	// asw: irrelevant for marines (since they don't duck atm)
-	//if ( player->m_Local.m_nDuckJumpTimeMsecs > 0.0f )
-		//return false;
+	if (player->m_Local.m_nDuckJumpTimeMsecs > 0)
+		return false;
 
 
 	// In the air now.
-    SetGroundEntity( NULL );
-	
-	// fixme: should play from the marine, not the player
-	Vector vecSrc = mv->GetAbsOrigin();
-	player->PlayStepSound( vecSrc, marine->m_pSurfaceData, 1.0, true );
-	
-	// fixme: set the animation on the marine
-	//MoveHelper()->PlayerSetAnimation( PLAYER_JUMP );
-	CASW_Player* pASWPlayer = dynamic_cast<CASW_Player*>(player);
-	if (pASWPlayer && pASWPlayer->GetMarine())
-	{
-		pASWPlayer->GetMarine()->DoAnimationEvent( PLAYERANIMEVENT_JUMP );
-	}
+	SetGroundEntity(NULL);
+
+	player->PlayStepSound((Vector&)mv->GetAbsOrigin(), marine->m_pSurfaceData, 1.0, true);
+
+	MoveHelper()->PlayerSetAnimation(PLAYER_JUMP);
 
 	float flGroundFactor = 1.0f;
 	if (marine->m_pSurfaceData)
 	{
-		flGroundFactor = marine->m_pSurfaceData->game.jumpFactor; 
+		flGroundFactor = marine->m_pSurfaceData->game.jumpFactor;
 	}
 
 	float flMul;
-	// asw comment
-	/*
-	if ( g_bMovementOptimizations )
+	if (g_bMovementOptimizations)
 	{
-#if defined(HL2_DLL) || defined(HL2_CLIENT_DLL)
-		Assert( sv_gravity.GetFloat() == 600.0f );
-		flMul = 160.0f;	// approx. 21 units.
-#else
-		Assert( sv_gravity.GetFloat() == 800.0f );
+		Assert(sv_gravity.GetFloat() == 800.0f);
 		flMul = 268.3281572999747f;
-#endif
-
 	}
-	else*/
+	else
 	{
 		flMul = sqrt(2 * asw_marine_gravity.GetFloat() * GAMEMOVEMENT_ASW_JUMP_HEIGHT);
 	}
@@ -2765,8 +2674,7 @@ bool CASW_MarineGameMovement::CheckJumpButton( void )
 	// Acclerate upward
 	// If we are ducking...
 	float startz = mv->m_vecVelocity[2];
-	
-	if ( (  player->m_Local.m_bDucking ) || (  marine->GetFlags() & FL_DUCKING ) )
+	if ((player->m_Local.m_bDucking) || (player->GetFlags() & FL_DUCKING))
 	{
 		// d = 0.5 * g * t^2		- distance traveled with linear accel
 		// t = sqrt(2.0 * 45 / g)	- how long to fall 45 units
@@ -2781,59 +2689,24 @@ bool CASW_MarineGameMovement::CheckJumpButton( void )
 		mv->m_vecVelocity[2] += flGroundFactor * flMul;  // 2 * gravity * height
 	}
 
-	// reduce the marine's x/y velocity some
-	mv->m_vecVelocity[0] *= ASW_JUMP_LATERAL_SCALE;
-	mv->m_vecVelocity[1] *= ASW_JUMP_LATERAL_SCALE;	
-
-	// Add a little forward velocity based on your current forward velocity - if you are not sprinting.
-	// asw: no forward boost
-	/*
-#if defined( HL2_DLL ) || defined( HL2_CLIENT_DLL )
-	CHLMoveData *pMoveData = ( CHLMoveData* )mv;
-	Vector vecForward;
-	AngleVectors( mv->m_vecViewAngles, &vecForward );
-	vecForward.z = 0;
-	VectorNormalize( vecForward );
-	if ( !pMoveData->m_bIsSprinting && !player->m_Local.m_bDucked )
-	{
-		for ( int iAxis = 0; iAxis < 2 ; ++iAxis )
-		{
-			vecForward[iAxis] *= ( mv->m_flForwardMove * 0.5f );
-//			vecForward[iAxis] *= ( mv->m_flForwardMove * jumpforwardscale.GetFloat() );
-		}
-	}
-	else
-	{
-		for ( int iAxis = 0; iAxis < 2 ; ++iAxis )
-		{
-			vecForward[iAxis] *= ( mv->m_flForwardMove * 0.1f );
-//			vecForward[iAxis] *= ( mv->m_flForwardMove * jumpforwardsprintscale.GetFloat() );
-		}
-	}
-	VectorAdd( vecForward, mv->m_vecVelocity, mv->m_vecVelocity );
-#endif
-	*/
-
 	FinishGravity();
-#ifdef CLIENT_DLL
-	//Msg("  [C] %f Jumping! v.z=%f\n", gpGlobals->curtime, marine->GetAbsVelocity().z);
-#else
-	//Msg("[S] %f Jumping! v.z=%f\n", gpGlobals->curtime, marine->GetAbsVelocity().z);
-#endif
 
-  	mv->m_outJumpVel.z += mv->m_vecVelocity[2] - startz;
+	CheckV(player->CurrentCommandNumber(), "CheckJump", mv->m_vecVelocity);
+
+	mv->m_outJumpVel.z += mv->m_vecVelocity[2] - startz;
 	mv->m_outStepHeight += 0.15f;
 
+	bool bSetDuckJump = (gpGlobals->maxClients == 1); //most games we only set duck jump if the game is single player
+
 	// Set jump time.
-	player->m_Local.m_nJumpTimeMsecs = GAMEMOVEMENT_JUMP_TIME;
-	player->m_Local.m_bInDuckJump = true;
+	if (bSetDuckJump)
+	{
+		player->m_Local.m_nJumpTimeMsecs = GAMEMOVEMENT_JUMP_TIME;
+		player->m_Local.m_bInDuckJump = true;
+	}
 
 	// Flag that we jumped.
 	mv->m_nOldButtons |= IN_JUMP;	// don't jump again until released
-
-	//Msg("jumping. m_outJumpVel.z = %f m_outStepHeight = %f vecvel.z = %f\n",
-		 //mv->m_outJumpVel.z, mv->m_outStepHeight, mv->m_vecVelocity[2]);
-
 	return true;
 }
 
@@ -3408,38 +3281,6 @@ int CASW_MarineGameMovement::ClipVelocity( Vector& in, Vector& normal, Vector& o
 	return blocked;
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: Computes roll angle for a certain movement direction and velocity
-// Input  : angles - 
-//			velocity - 
-//			rollangle - 
-//			rollspeed - 
-// Output : float 
-//-----------------------------------------------------------------------------
-float CASW_MarineGameMovement::CalcRoll ( const QAngle &angles, const Vector &velocity, float rollangle, float rollspeed )
-{
-	float   sign;
-	float   side;
-	float   value;
-	Vector  forward, right, up;
-	
-	AngleVectors (angles, &forward, &right, &up);
-	
-	side = DotProduct (velocity, right);
-	sign = side < 0 ? -1 : 1;
-	side = fabs(side);
-	value = rollangle;
-	if (side < rollspeed)
-	{
-		side = side * value / rollspeed;
-	}
-	else
-	{
-		side = value;
-	}
-	return side*sign;
-}
-
 #define CHECKSTUCK_MINTIME 0.05  // Don't check again too quickly.
 
 static Vector rgv3tMarineStuckTable[54];
@@ -3739,10 +3580,10 @@ int CASW_MarineGameMovement::CheckStuck( void )
 		return 0;
 	}
 
-	/*
+	
 	// If player is flailing while stuck in another player ( should never happen ), then see
 	//  if we can't "unstick" them forceably.
-	if ( mv->m_nButtons & ( IN_JUMP | IN_DUCK | IN_ATTACK ) && ( pmv->physents[ hitent ].player != 0 ) )
+	if ( mv->m_nButtons & ( IN_JUMP | IN_WALK | IN_ATTACK ) )
 	{
 		float x, y, z;
 		float xystep = 8.0;
@@ -3760,17 +3601,11 @@ int CASW_MarineGameMovement::CheckStuck( void )
 					test[0] += x;
 					test[1] += y;
 					test[2] += z;
-
-					if ( pmv->TestPosition ( test, NULL ) == -1 )
-					{
-						VectorCopy( test, mv->m_vecAbsOrigin );
-						return 0;
-					}
 				}
 			}
 		}
 	}
-	*/
+	
 	return 1;
 }
 
@@ -4168,9 +4003,7 @@ void CASW_MarineGameMovement::CheckFalling( void )
 			// Play landing sound right away.
 			player->m_flStepSoundTime = 400;
 
-			// Play step sound for current texture.
-			Vector vecSrc = mv->GetAbsOrigin();
-			player->PlayStepSound( vecSrc, marine->m_pSurfaceData, fvol, true );
+			player->PlayStepSound((Vector&)mv->GetAbsOrigin(), marine->m_pSurfaceData, 1.0, true);
 
 			//
 			// Knock the screen around a little bit, temporary effect.
@@ -4201,6 +4034,32 @@ void CASW_MarineGameMovement::CheckFalling( void )
 	}
 }
 
+void CASW_MarineGameMovement::PlayerRoughLandingEffects(float fvol)
+{
+	if (fvol > 0.0)
+	{
+		//
+		// Play landing sound right away.
+		player->m_flStepSoundTime = 400;
+
+		// Play step sound for current texture.
+		player->PlayStepSound((Vector&)mv->GetAbsOrigin(), player->m_pSurfaceData, fvol, true);
+
+		//
+		// Knock the screen around a little bit, temporary effect.
+		//
+		player->m_Local.m_vecPunchAngle.Set(ROLL, player->m_Local.m_flFallVelocity * 0.013);
+
+		if (player->m_Local.m_vecPunchAngle[PITCH] > 8)
+		{
+			player->m_Local.m_vecPunchAngle.Set(PITCH, 8);
+		}
+
+#if !defined( CLIENT_DLL )
+		player->RumbleEffect((fvol > 0.85f) ? (RUMBLE_FALL_LONG) : (RUMBLE_FALL_SHORT), 0, RUMBLE_FLAGS_NONE);
+#endif
+	}
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: Use for ease-in, ease-out style interpolation (accel/decel)  Used by ducking code.
@@ -4537,13 +4396,13 @@ void CASW_MarineGameMovement::Duck( void )
 	bool bDuckJump = ( player->m_Local.m_nJumpTimeMsecs > 0 );
 	bool bDuckJumpTime = ( player->m_Local.m_nDuckJumpTimeMsecs > 0 );
 
-	if ( mv->m_nButtons & IN_DUCK )
+	if ( mv->m_nButtons & IN_WALK )
 	{
-		mv->m_nOldButtons |= IN_DUCK;
+		mv->m_nOldButtons |= IN_WALK;
 	}
 	else
 	{
-		mv->m_nOldButtons &= ~IN_DUCK;
+		mv->m_nOldButtons &= ~IN_WALK;
 	}
 
 	// Handle death.
@@ -4554,20 +4413,20 @@ void CASW_MarineGameMovement::Duck( void )
 	HandleDuckingSpeedCrop();
 
 	// If the player is holding down the duck button, the player is in duck transition, ducking, or duck-jumping.
-	if ( ( mv->m_nButtons & IN_DUCK ) || player->m_Local.m_bDucking  || bInDuck || bDuckJump )
+	if ( ( mv->m_nButtons & IN_WALK) || player->m_Local.m_bDucking  || bInDuck || bDuckJump )
 	{
 		// DUCK
-		if ( ( mv->m_nButtons & IN_DUCK ) || bDuckJump )
+		if ( ( mv->m_nButtons & IN_WALK) || bDuckJump )
 		{
 			// Have the duck button pressed, but the player currently isn't in the duck position.
-			if ( ( buttonsPressed & IN_DUCK ) && !bInDuck && !bDuckJump && !bDuckJumpTime )
+			if ( ( buttonsPressed & IN_WALK) && !bInDuck && !bDuckJump && !bDuckJumpTime )
 			{
 				player->m_Local.m_nDuckTimeMsecs = GAMEMOVEMENT_DUCK_TIME;
 				player->m_Local.m_bDucking = true;
 			}
 			
 			// The player is in duck transition and not duck-jumping.
-			if ( player->m_Local.m_bDucking && !bDuckJump && !bDuckJumpTime )
+			if (player->m_Local.m_bDucking && !bDuckJump && !bDuckJumpTime )
 			{
 				int nDuckMilliseconds = MAX( 0, GAMEMOVEMENT_DUCK_TIME - player->m_Local.m_nDuckTimeMsecs );
 				
@@ -4594,7 +4453,7 @@ void CASW_MarineGameMovement::Duck( void )
 				else
 				{
 					// Check for a crouch override.
-					if ( !( mv->m_nButtons & IN_DUCK ) )
+					if ( !( mv->m_nButtons & IN_WALK ) )
 					{
 						trace_t trace;
 						if ( CanUnDuckJump( trace ) )
@@ -4609,10 +4468,10 @@ void CASW_MarineGameMovement::Duck( void )
 		// UNDUCK (or attempt to...)
 		else
 		{
-			if ( player->m_Local.m_bInDuckJump )
+			if (player->m_Local.m_bInDuckJump )
 			{
 				// Check for a crouch override.
-   				if ( !( mv->m_nButtons & IN_DUCK ) )
+   				if ( !( mv->m_nButtons & IN_WALK ) )
 				{
 					trace_t trace;
 					if ( CanUnDuckJump( trace ) )
@@ -4636,10 +4495,10 @@ void CASW_MarineGameMovement::Duck( void )
 
 			// Try to unduck unless automovement is not allowed
 			// NOTE: When not onground, you can always unduck
-			if ( player->m_Local.m_bAllowAutoMovement || bInAir )
+			if (player->m_Local.m_bAllowAutoMovement || bInAir )
 			{
 				// We released the duck button, we aren't in "duck" and we are not in the air - start unduck transition.
-				if ( ( buttonsReleased & IN_DUCK ) && bInDuck && !bDuckJump )
+				if ( ( buttonsReleased & IN_WALK ) && bInDuck && !bDuckJump )
 				{
 					player->m_Local.m_nDuckTimeMsecs = GAMEMOVEMENT_DUCK_TIME;
 				}
@@ -4648,7 +4507,7 @@ void CASW_MarineGameMovement::Duck( void )
 				if ( CanUnduck() )
 				{
 					// or unducking
-					if ( ( player->m_Local.m_bDucking || player->m_Local.m_bDucked ) )
+					if ( (player->m_Local.m_bDucking || player->m_Local.m_bDucked ) )
 					{
 						int nDuckMilliseconds = MAX( 0, GAMEMOVEMENT_DUCK_TIME - player->m_Local.m_nDuckTimeMsecs );
 
@@ -4700,11 +4559,7 @@ void CASW_MarineGameMovement::PlayerMove( void )
 		return;
 	}
 	
-	// use fixed axis?
-	if ( asw_controls.GetInt() == 1 )
-		AngleVectors( ASWGameRules()->GetTopDownMovementAxis(), &m_vecForward, &m_vecRight, &m_vecUp ); 
-	else
-		AngleVectors (mv->m_vecViewAngles, &m_vecForward, &m_vecRight, &m_vecUp );  // Determine movement angles
+	AngleVectors (mv->m_vecViewAngles, &m_vecForward, &m_vecRight, &m_vecUp );  // Determine movement angles
 
 	// Always try and unstick us unless we are a couple of the movement modes
 	//if ( CheckInterval( STUCK ) )
@@ -4743,7 +4598,7 @@ void CASW_MarineGameMovement::PlayerMove( void )
 // 		CategorizeGroundSurface();
 // 	}
 
-	//marine->UpdateStepSound( marine->m_pSurfaceData, mv->m_vecAbsOrigin, mv->m_vecVelocity );
+	marine->UpdateStepSound(player->m_pSurfaceData, mv->GetAbsOrigin(), mv->m_vecVelocity);
 
 	UpdateDuckJumpEyeOffset();
 	//Duck();		// asw, remove duck for now (causes strange z change when you jump)
@@ -4816,76 +4671,6 @@ void CASW_MarineGameMovement::PlayerMove( void )
 	//Msg("After move: ");  CheckStuck();
 }
 
-
-//-----------------------------------------------------------------------------
-// Performs the collision resolution for fliers.
-//-----------------------------------------------------------------------------
-void CASW_MarineGameMovement::PerformFlyCollisionResolution( trace_t &pm, Vector &move )
-{
-	Vector base;
-	float vel;
-	float backoff;
-
-	switch (marine->GetMoveCollide())
-	{
-	case MOVECOLLIDE_FLY_CUSTOM:
-		// Do nothing; the velocity should have been modified by touch
-		// FIXME: It seems wrong for touch to modify velocity
-		// given that it can be called in a number of places
-		// where collision resolution do *not* in fact occur
-
-		// Should this ever occur for players!?
-		Assert(0);
-		break;
-
-	case MOVECOLLIDE_FLY_BOUNCE:	
-	case MOVECOLLIDE_DEFAULT:
-		{
-			if (marine->GetMoveCollide() == MOVECOLLIDE_FLY_BOUNCE)
-				backoff = 2.0 - marine->m_surfaceFriction;
-			else
-				backoff = 1;
-
-			ClipVelocity (mv->m_vecVelocity, pm.plane.normal, mv->m_vecVelocity, backoff);
-		}
-		break;
-
-	default:
-		// Invalid collide type!
-		Assert(0);
-		break;
-	}
-
-	// stop if on ground
-	if (pm.plane.normal[2] > 0.7)
-	{		
-		base.Init();
-		if (mv->m_vecVelocity[2] < asw_marine_gravity.GetFloat() * gpGlobals->frametime)
-		{
-			// we're rolling on the ground, add static friction.
-			SetGroundEntity( &pm ); 
-			mv->m_vecVelocity[2] = 0;
-		}
-
-		vel = DotProduct( mv->m_vecVelocity, mv->m_vecVelocity );
-
-		// Con_DPrintf("%f %f: %.0f %.0f %.0f\n", vel, trace.fraction, ent->velocity[0], ent->velocity[1], ent->velocity[2] );
-
-		if (vel < (30 * 30) || (marine->GetMoveCollide() != MOVECOLLIDE_FLY_BOUNCE))
-		{
-			SetGroundEntity( &pm ); 
-			mv->m_vecVelocity.Init();
-		}
-		else
-		{
-			VectorScale (mv->m_vecVelocity, (1.0 - pm.fraction) * gpGlobals->frametime * 0.9, move);
-			PushEntity( move, &pm );
-		}
-		VectorSubtract( mv->m_vecVelocity, base, mv->m_vecVelocity );
-	}
-}
-
-
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -4905,10 +4690,7 @@ void CASW_MarineGameMovement::FullTossMove( void )
 		float wishspeed;
 		int i;
 		
-		if ( asw_controls.GetInt() == 1 )
-			AngleVectors( ASWGameRules()->GetTopDownMovementAxis(), &forward, &right, &up ); 
-		else
-			AngleVectors (mv->m_vecViewAngles, &forward, &right, &up);  // Determine movement angles
+		AngleVectors (mv->m_vecViewAngles, &forward, &right, &up);  // Determine movement angles
 
 		// Copy movement amounts
 		fmove = mv->m_flForwardMove;
@@ -4981,11 +4763,6 @@ void CASW_MarineGameMovement::FullTossMove( void )
 		return;
 	}
 	
-	if (pm.fraction != 1)
-	{
-		PerformFlyCollisionResolution( pm, move );
-	}
-	
 	// check for in water
 	CheckWater();
 }
@@ -5007,11 +4784,8 @@ void CASW_MarineGameMovement::IsometricMove( void )
 	Vector wishvel;
 	float fmove, smove;
 	Vector forward, right, up;
-	
-	if ( asw_controls.GetInt() == 1 )
-		AngleVectors( ASWGameRules()->GetTopDownMovementAxis(), &forward, &right, &up ); 
-	else
-		AngleVectors (mv->m_vecViewAngles, &forward, &right, &up);  // Determine movement angles
+
+	AngleVectors (mv->m_vecViewAngles, &forward, &right, &up);  // Determine movement angles
 	
 	// Copy movement amounts
 	fmove = mv->m_flForwardMove;
