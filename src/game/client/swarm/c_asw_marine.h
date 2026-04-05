@@ -452,6 +452,7 @@ public:
 	bool CanDoForcedAction( int iForcedAction );		// check if we're allowed to perform a forced action (certain abilities limit this)
 	CNetworkVar( int, m_iForcedActionRequest );
 	static C_ASW_Marine* GetLocalMarine();
+	static C_ASW_Marine* GetNPCMarine();
 
 	int CurrentCommandNumber() const;
 

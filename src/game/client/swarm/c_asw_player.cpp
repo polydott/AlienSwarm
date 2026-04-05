@@ -921,6 +921,11 @@ C_ASW_Marine* C_ASW_Player::GetMarine()
 	return m_hMarine.Get();
 }
 
+C_ASW_Marine* C_ASW_Player::GetNPCMarine()
+{
+	return m_hNPCMarine.Get();
+}
+
 C_ASW_Marine* C_ASW_Player::GetMarine() const
 {
 	return m_hMarine.Get();
@@ -1495,7 +1500,6 @@ void C_ASW_Player::AvoidMarines( CUserCmd *pCmd )
 		return;
 
 	// Get the player controlled marine.
-	// TODO: There may be more than one marine per player at some point.
 	C_ASW_Marine *pMarine = GetMarine();
 	if ( !pMarine )
 		return;
@@ -2172,8 +2176,8 @@ void C_ASW_Player::MarinePerformClientSideObstacleAvoidance( float flFrameTime, 
 		float objectradius = 1.0f * sqrt( objSize.x * objSize.x + objSize.y * objSize.y ) * asw_clientside_avoidance_scale.GetFloat();
 
 		//Don't run this code if the NPC is not moving UNLESS we are in stuck inside of them.
-		//if ( !obj->IsMoving() && flDist > objectradius )
-			 // continue;
+		if ( !obj->IsMoving() && flDist > objectradius )
+			  continue;
 
 		float flHit1, flHit2;
 
