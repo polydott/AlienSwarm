@@ -50,3 +50,5 @@ config.cfg
 *.filters
 *.vpc_crc
 *.sentinel
+*.db-shm
+*.db-wal
