@@ -35,7 +35,7 @@ using namespace vgui;
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-ConVar asw_door_healthbars("asw_door_healthbars", "2", FCVAR_NONE, "0=no health bars, 1=health bar at cursor, 2=show all door health bars");
+ConVar asw_door_healthbars("asw_door_healthbars", "1", FCVAR_NONE, "0=no health bars, 1=health bar at cursor, 2=show all door health bars");
 extern ConVar asw_draw_hud;
 
 #define MAX_DOOR_HEALTH_BARS 8

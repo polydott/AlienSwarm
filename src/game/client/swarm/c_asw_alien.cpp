@@ -33,10 +33,10 @@
 ConVar asw_alien_object_motion_blur_scale( "asw_alien_object_motion_blur_scale", "0.2" );
 ConVar asw_drone_gib_time_min("asw_drone_gib_time_min", "0.2", 0, "Minimum time a Swarm Drone ragdoll will stay around before gibbing");
 ConVar asw_drone_gib_time_max("asw_drone_gib_time_max", "0.2", 0, "Maximum time a Swarm Drone ragdoll will stay around before gibbing");
-ConVar asw_drone_fade_time_min("asw_drone_fade_time_min", "2.0", 0, "Minimum time a Swarm Drone ragdoll will stay around before fading");
-ConVar asw_drone_fade_time_max("asw_drone_fade_time_max", "4.0", 0, "Maximum time a Swarm Drone ragdoll will stay around before fading");
+ConVar asw_drone_fade_time_min("asw_drone_fade_time_min", "998", 0, "Minimum time a Swarm Drone ragdoll will stay around before fading");
+ConVar asw_drone_fade_time_max("asw_drone_fade_time_max", "999", 0, "Maximum time a Swarm Drone ragdoll will stay around before fading");
 ConVar asw_directional_shadows("asw_directional_shadows", "1", 0, "Whether aliens should have flashlight directional shadows");
-ConVar asw_alien_shadows("asw_alien_shadows", "0", 0, "If set to one, aliens will always have shadows (WARNING: Big fps cost when lots of aliens are active)");
+ConVar asw_alien_shadows("asw_alien_shadows", "1", 0, "If set to one, aliens will always have shadows (WARNING: Big fps cost when lots of aliens are active)");
 ConVar asw_alien_footstep_interval( "asw_alien_footstep_interval", "0.25", 0, "Minimum interval between alien footstep sounds. Used to keep them from piling up and preventing others from playing." );
 ConVar asw_breakable_aliens( "asw_breakable_aliens", "1", 0, "If set, aliens can break into ragdoll gibs" );
 extern ConVar asw_override_footstep_volume;
@@ -380,7 +380,7 @@ C_BaseAnimating * C_ASW_Alien::BecomeRagdollOnClient( void )
 			pRagdoll->m_fASWGibTime = gpGlobals->curtime + ASW_GIB_ASAP; //gpGlobals->curtime + random->RandomFloat( 0.2f, 0.4f );
 		}
 		// make this ragdoll gib RIGHT MEOW
-		else if ( m_nDeathStyle == kDIE_INSTAGIB )
+		else if ( m_nDeathStyle == kDIE_BREAKABLE )
 		{
 			// force instant gib
 			// this happens when an alien takes a large amount of damage
@@ -400,7 +400,7 @@ C_BaseAnimating * C_ASW_Alien::BecomeRagdollOnClient( void )
 			pRagdoll->m_fASWGibTime = gpGlobals->curtime + random->RandomFloat( 4, 9 );
 			pRagdoll->pszGibParticleEffect = GetRagdollGibParticleEffectName();
 		}
-		else if ( m_nDeathStyle == kDIE_RAGDOLLFADE )
+		else if ( m_nDeathStyle == kDIE_RAGDOLLFADE)
 		{
 			pRagdoll->m_fASWGibTime = gpGlobals->curtime + random->RandomFloat(asw_drone_fade_time_min.GetFloat(), asw_drone_fade_time_max.GetFloat());
 			pRagdoll->pszGibParticleEffect = GetRagdollGibParticleEffectName();

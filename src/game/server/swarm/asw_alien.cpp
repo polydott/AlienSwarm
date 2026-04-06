@@ -174,7 +174,7 @@ CASW_Alien::CASW_Alien( void ) :
 	m_iDeadBodyGroup = 1;
 	m_bNeverRagdoll = false;
 	m_bNeverInstagib = false;
-	m_nDeathStyle = kDIE_RAGDOLLFADE;
+	m_nDeathStyle = kDIE_BREAKABLE;
 	m_flBaseThawRate = 0.5f;
 	m_flFrozenTime = 0.0f;
 
