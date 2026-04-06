@@ -50,8 +50,6 @@ bool CASWTraceFilterShot::ShouldHitEntity( IHandleEntity *pHandleEntity, int con
 			return false;
 
 		CASW_Marine *pMarine = assert_cast<CASW_Marine*>( pEntity );
-		if ( m_bSkipRollingMarines && pMarine->GetCurrentMeleeAttack() && pMarine->GetCurrentMeleeAttack()->m_nAttackID == CASW_Melee_System::s_nRollAttackID )
-			return false;
 
 		if ( m_bSkipMarinesReflectingProjectiles && pMarine->IsReflectingProjectiles() )
 			return false;

@@ -15,6 +15,12 @@
 	#define CASW_Simple_Alien C_ASW_Simple_Alien
 	#define CASW_Pickup_Weapon C_ASW_Pickup_Weapon
 	#define CAI_BaseNPC C_AI_BaseNPC
+	#include "iclientvehicle.h"
+	#include "prediction.h"
+	#include "c_basedoor.h"
+	#include "c_world.h"
+	#include "view.h"
+	#define CRecipientFilter C_RecipientFilter
 #else
 	#include "te_effect_dispatch.h"
 	#include "asw_marine.h"
@@ -27,6 +33,12 @@
 	#include "asw_pickup_weapon.h"
 	#include "asw_alien.h"
 	#include "asw_hack.h"
+	#include "trains.h"
+	#include "world.h"
+	#include "doors.h"
+	#include "ai_basenpc.h"
+	#include "env_zoom.h"
+	extern int TrainSpeed(int iSpeed, int iMax);
 #endif
 #include "game_timescale_shared.h"
 #include "asw_marine_gamemovement.h"
@@ -51,6 +63,10 @@
 #include "eventlist.h"
 #include "particle_parse.h"
 #include "asw_trace_filter_shot.h"
+#include "in_buttons.h"
+#include "engine/IEngineSound.h"
+#include "tier0/vprof.h"
+#include "SoundEmitterSystem/isoundemittersystembase.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -252,33 +268,7 @@ void CASW_Marine::AvoidPhysicsProps( CUserCmd *pCmd )
 
 Vector CASW_Marine::Weapon_ShootPosition( )
 {
-	Vector forward, right, up, v;
-
-	v = GetAbsOrigin();
-
-	if (IsInVehicle() && GetASWVehicle() && GetASWVehicle()->GetEntity())
-	{
-		v = GetASWVehicle()->GetEntity()->GetAbsOrigin();
-#ifdef CLIENT_DLL
-		if (gpGlobals->maxClients>1 && GetClientsideVehicle() && GetClientsideVehicle()->GetEntity())
-			v = GetClientsideVehicle()->GetEntity()->GetAbsOrigin();		
-#endif
-	}
-
-	QAngle ang = ASWEyeAngles();
-	ang.x = 0;	// clear out pitch, so we're matching the fixes point of our autoaim calcs
-	AngleVectors( ang, &forward, &right, &up );
-	v = v + up * ASW_MARINE_GUN_OFFSET_Z;
-	Vector vecSrc = v
-					+ forward * ASW_MARINE_GUN_OFFSET_X
-					+ right * ASW_MARINE_GUN_OFFSET_Y;
-
-	trace_t tr;
-	UTIL_TraceLine(v, vecSrc, MASK_SHOT, this, COLLISION_GROUP_NONE, &tr);
-	if (tr.fraction < 1.0f)
-		return tr.endpos;
-
-	return vecSrc;
+	return EyePosition();
 }
 
 float CASW_Marine::MaxSpeed()
@@ -333,6 +323,336 @@ float CASW_Marine::MaxSpeed()
 	}
 	
 	return speed * speedscale;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : 
+// Output : const Vector
+//-----------------------------------------------------------------------------
+const Vector CASW_Marine::GetPlayerMins(void) const
+{
+	if (GetFlags() & FL_DUCKING)
+	{
+		return VEC_DUCK_HULL_MIN_SCALED(this);
+	}
+	else
+	{
+		return VEC_HULL_MIN_SCALED(this);
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : 
+// Output : const Vector
+//-----------------------------------------------------------------------------
+const Vector CASW_Marine::GetPlayerMaxs(void) const
+{
+	if (GetFlags() & FL_DUCKING)
+	{
+		return VEC_DUCK_HULL_MAX_SCALED(this);
+	}
+	else
+	{
+		return VEC_HULL_MAX_SCALED(this);
+	}
+}
+
+#ifdef CLIENT_DLL
+surfacedata_t* CASW_Marine::GetFootstepSurface(const Vector& origin, const char* surfaceName)
+{
+	return physprops->GetSurfaceData(physprops->GetSurfaceIndex(surfaceName));
+}
+#endif
+
+surfacedata_t* CASW_Marine::GetLadderSurface(const Vector& origin)
+{
+#ifdef CLIENT_DLL
+	return GetFootstepSurface(origin, "ladder");
+#else
+	return physprops->GetSurfaceData(physprops->GetSurfaceIndex("ladder"));
+#endif
+}
+
+void CASW_Marine::UpdateStepSound(surfacedata_t* psurface, const Vector& vecOrigin, const Vector& vecVelocity)
+{
+	bool bWalking;
+	float fvol;
+	Vector knee;
+	Vector feet;
+	float height;
+	float speed;
+	float velrun;
+	float velwalk;
+	int	fLadder;
+
+	if (m_flStepSoundTime > 0)
+	{
+		m_flStepSoundTime -= 1000.0f * gpGlobals->frametime;
+		if (m_flStepSoundTime < 0)
+		{
+			m_flStepSoundTime = 0;
+		}
+	}
+
+	if (m_flStepSoundTime > 0)
+		return;
+
+	if (GetFlags() & (FL_FROZEN | FL_ATCONTROLS))
+		return;
+
+	if (GetMoveType() == MOVETYPE_NOCLIP || GetMoveType() == MOVETYPE_OBSERVER)
+		return;
+
+	speed = VectorLength(vecVelocity);
+	float groundspeed = Vector2DLength(vecVelocity.AsVector2D());
+
+	// determine if we are on a ladder
+	fLadder = (GetMoveType() == MOVETYPE_LADDER);
+
+	GetStepSoundVelocities(&velwalk, &velrun);
+
+	bool onground = (GetFlags() & FL_ONGROUND);
+	bool movingalongground = (groundspeed > 0.0001f);
+	bool moving_fast_enough = (speed >= velwalk);
+
+	// To hear step sounds you must be either on a ladder or moving along the ground AND
+	// You must be moving fast enough
+
+	if (!moving_fast_enough || !(fLadder || (onground && movingalongground)))
+		return;
+
+	//	MoveHelper()->PlayerSetAnimation( PLAYER_WALK );
+
+	bWalking = speed < velrun;
+
+	VectorCopy(vecOrigin, knee);
+	VectorCopy(vecOrigin, feet);
+
+	height = GetPlayerMaxs()[2] - GetPlayerMins()[2];
+
+	knee[2] = vecOrigin[2] + 0.2 * height;
+
+	// find out what we're stepping in or on...
+	if (fLadder)
+	{
+		psurface = GetLadderSurface(vecOrigin);
+		fvol = 0.5;
+
+		SetStepSoundTime(STEPSOUNDTIME_ON_LADDER, bWalking);
+	}
+	else if (GetWaterLevel() == WL_Waist)
+	{
+		static int iSkipStep = 0;
+
+		if (iSkipStep == 0)
+		{
+			iSkipStep++;
+			return;
+		}
+
+		if (iSkipStep++ == 3)
+		{
+			iSkipStep = 0;
+		}
+		psurface = physprops->GetSurfaceData(physprops->GetSurfaceIndex("wade"));
+		fvol = 0.65;
+		SetStepSoundTime(STEPSOUNDTIME_WATER_KNEE, bWalking);
+	}
+	else if (GetWaterLevel() == WL_Feet)
+	{
+		psurface = physprops->GetSurfaceData(physprops->GetSurfaceIndex("water"));
+		fvol = bWalking ? 0.2 : 0.5;
+
+		SetStepSoundTime(STEPSOUNDTIME_WATER_FOOT, bWalking);
+	}
+	else
+	{
+		if (!psurface)
+			return;
+
+		SetStepSoundTime(STEPSOUNDTIME_NORMAL, bWalking);
+
+		switch (psurface->game.material)
+		{
+		default:
+		case CHAR_TEX_CONCRETE:
+			fvol = bWalking ? 0.2 : 0.5;
+			break;
+
+		case CHAR_TEX_METAL:
+			fvol = bWalking ? 0.2 : 0.5;
+			break;
+
+		case CHAR_TEX_DIRT:
+			fvol = bWalking ? 0.25 : 0.55;
+			break;
+
+		case CHAR_TEX_VENT:
+			fvol = bWalking ? 0.4 : 0.7;
+			break;
+
+		case CHAR_TEX_GRATE:
+			fvol = bWalking ? 0.2 : 0.5;
+			break;
+
+		case CHAR_TEX_TILE:
+			fvol = bWalking ? 0.2 : 0.5;
+			break;
+
+		case CHAR_TEX_SLOSH:
+			fvol = bWalking ? 0.2 : 0.5;
+			break;
+		}
+	}
+
+	// play the sound
+	// 65% volume if ducking
+	if (GetFlags() & FL_DUCKING)
+	{
+		fvol *= 0.65;
+	}
+
+#ifdef CLIENT_DLL
+	PlayStepSound(psurface, feet, fvol, false);
+#else
+	PlayStepSound(feet, psurface, fvol, false);
+#endif
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : step - 
+//			fvol - 
+//			force - force sound to play
+//-----------------------------------------------------------------------------
+#ifdef CLIENT_DLL
+void C_ASW_Marine::PlayStepSound(surfacedata_t* psurface, Vector& vecOrigin, float fvol, bool force)
+#else
+void CASW_Marine::PlayStepSound(Vector& vecOrigin, surfacedata_t* psurface, float fvol, bool force)
+#endif
+{
+	if (gpGlobals->maxClients > 1)
+		return;
+
+#if defined( CLIENT_DLL )
+	// during prediction play footstep sounds only once
+	if (prediction->InPrediction() && !prediction->IsFirstTimePredicted())
+		return;
+#endif
+
+	if (!psurface)
+		return;
+
+	int nSide = m_Local.m_nStepside;
+	unsigned short stepSoundName = nSide ? psurface->sounds.walkStepLeft / psurface->sounds.runStepLeft : psurface->sounds.walkStepRight / psurface->sounds.runStepRight;
+	if (!stepSoundName)
+		return;
+
+	m_Local.m_nStepside = !nSide;
+
+	CSoundParameters params;
+
+	Assert(nSide == 0 || nSide == 1);
+
+	if (m_StepSoundCache[nSide].m_usSoundNameIndex == stepSoundName)
+	{
+		params = m_StepSoundCache[nSide].m_SoundParameters;
+	}
+	else
+	{
+		const char* pSoundName = MoveHelper()->GetSurfaceProps()->GetString(stepSoundName);
+
+		// Give child classes an opportunity to override.
+		pSoundName = GetOverrideStepSound(pSoundName);
+
+		if (!CBaseEntity::GetParametersForSound(pSoundName, params, NULL))
+			return;
+
+		// Only cache if there's one option.  Otherwise we'd never here any other sounds
+		if (params.count == 1)
+		{
+			m_StepSoundCache[nSide].m_usSoundNameIndex = stepSoundName;
+			m_StepSoundCache[nSide].m_SoundParameters = params;
+		}
+	}
+
+	CRecipientFilter filter;
+	filter.AddRecipientsByPAS(vecOrigin);
+
+#ifndef CLIENT_DLL
+	// in MP, server removes all players in the vecOrigin's PVS, these players generate the footsteps client side
+	if (gpGlobals->maxClients > 1)
+	{
+		filter.RemoveRecipientsByPVS(vecOrigin);
+	}
+#endif
+
+	EmitSound_t ep;
+	ep.m_nChannel = CHAN_BODY;
+	ep.m_pSoundName = params.soundname;
+	ep.m_flVolume = fvol;
+	ep.m_SoundLevel = params.soundlevel;
+	ep.m_nFlags = 0;
+	ep.m_nPitch = params.pitch;
+	ep.m_pOrigin = &vecOrigin;
+
+	EmitSound(filter, entindex(), ep);
+
+	// Kyle says: ugggh. This function may as well be called "PerformPileOfDesperateGameSpecificFootstepHacks".
+	OnEmitFootstepSound(params, vecOrigin, fvol);
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CASW_Marine::GetStepSoundVelocities(float* velwalk, float* velrun)
+{
+	// UNDONE: need defined numbers for run, walk, crouch, crouch run velocities!!!!	
+	if ((GetFlags() & FL_DUCKING) || (GetMoveType() == MOVETYPE_LADDER))
+	{
+		*velwalk = 60;		// These constants should be based on cl_movespeedkey * cl_forwardspeed somehow
+		*velrun = 80;
+	}
+	else
+	{
+		*velwalk = 90;
+		*velrun = 220;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CASW_Marine::SetStepSoundTime(stepsoundtimes_t iStepSoundTime, bool bWalking)
+{
+	switch (iStepSoundTime)
+	{
+	case STEPSOUNDTIME_NORMAL:
+	case STEPSOUNDTIME_WATER_FOOT:
+		m_flStepSoundTime = bWalking ? 400 : 300;
+		break;
+
+	case STEPSOUNDTIME_ON_LADDER:
+		m_flStepSoundTime = 350;
+		break;
+
+	case STEPSOUNDTIME_WATER_KNEE:
+		m_flStepSoundTime = 600;
+		break;
+
+	default:
+		Assert(0);
+		break;
+	}
+
+	// UNDONE: need defined numbers for run, walk, crouch, crouch run velocities!!!!	
+	if ((GetFlags() & FL_DUCKING) || (GetMoveType() == MOVETYPE_LADDER))
+	{
+		m_flStepSoundTime += 100;
+	}
 }
 
 // ammo in weapons this marine is carrying

@@ -9,6 +9,18 @@
 #define ASW_MAX_PLAYER_NAME_LENGTH 32
 #define ASW_MAX_PLAYER_NAME_LENGTH_3D 20
 
+// If the player (enemy bots) are scaled, adjust the hull
+#define VEC_VIEW_SCALED( player )				( g_pGameRules->GetViewVectors()->m_vView * player->GetModelScale() )
+#define VEC_HULL_MIN_SCALED( player )			( g_pGameRules->GetViewVectors()->m_vHullMin * player->GetModelScale() )
+#define VEC_HULL_MAX_SCALED( player )			( g_pGameRules->GetViewVectors()->m_vHullMax * player->GetModelScale() )
+
+#define VEC_DUCK_HULL_MIN_SCALED( player )		( g_pGameRules->GetViewVectors()->m_vDuckHullMin * player->GetModelScale() )
+#define VEC_DUCK_HULL_MAX_SCALED( player )		( g_pGameRules->GetViewVectors()->m_vDuckHullMax * player->GetModelScale() )
+#define VEC_DUCK_VIEW_SCALED( player )			( g_pGameRules->GetViewVectors()->m_vDuckView * player->GetModelScale() )
+
+#define VEC_OBS_HULL_MIN_SCALED( player )		( g_pGameRules->GetViewVectors()->m_vObsHullMin * player->GetModelScale() )
+#define VEC_OBS_HULL_MAX_SCALED( player )		( g_pGameRules->GetViewVectors()->m_vObsHullMax * player->GetModelScale() )
+
 enum ASW_Inventory_slot_t
 {
 	ASW_INVENTORY_SLOT_PRIMARY = 0,
@@ -59,7 +71,7 @@ enum ASW_Skill_Slot
 
 #define ASW_PLAYER_MAX_USE_ENTS 3
 
-#define ASW_PLAYER_VIEW_OFFSET	Vector( 0, 0, 53.5 )
+#define ASW_PLAYER_VIEW_OFFSET		Vector( 0, 0, 34.5 )
 #define ASW_MARINE_GUN_OFFSET_X		25.0f
 #define ASW_MARINE_GUN_OFFSET_Y		4.0f
 #define ASW_MARINE_GUN_OFFSET_Z		34.0f

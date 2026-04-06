@@ -82,6 +82,35 @@ public:
 	void	SelectModelFromProfile();
 	void	SelectModel();
 	
+	// player parity
+
+	CNetworkVarEmbedded(CPlayerLocalData, m_Local);
+
+	virtual surfacedata_t*  GetLadderSurface(const Vector& origin);
+
+	void					PlayStepSound(Vector& vecOrigin, surfacedata_t* psurface, float fvol, bool force);
+	virtual void			SetStepSoundTime(stepsoundtimes_t iStepSoundTime, bool bWalking);
+	float					m_flStepSoundTime;	// time to check for next footstep sound
+	virtual void			GetStepSoundVelocities(float* velwalk, float* velrun);
+	virtual const char*		GetOverrideStepSound(const char* pszBaseStepSoundName) { return pszBaseStepSoundName; }
+
+	virtual void			UpdateStepSound(surfacedata_t* psurface, const Vector& vecOrigin, const Vector& vecVelocity);
+
+	virtual const Vector	GetPlayerMins(void) const; // uses local player
+	virtual const Vector	GetPlayerMaxs(void) const; // uses local player
+
+	virtual void			OnEmitFootstepSound(const CSoundParameters& params, const Vector& vecOrigin, float fVolume) {}
+
+	struct StepSoundCache_t
+	{
+		StepSoundCache_t() : m_usSoundNameIndex(0) {}
+		CSoundParameters	m_SoundParameters;
+		unsigned short		m_usSoundNameIndex;
+	};
+
+	// One for left and one for right side of step
+	StepSoundCache_t		m_StepSoundCache[2];
+
 	CAI_Senses *CreateSenses();
 
 	void SetHeightLook( float flHeightLook );

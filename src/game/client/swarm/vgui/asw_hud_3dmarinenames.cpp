@@ -154,8 +154,8 @@ void CASWHud3DMarineNames::Paint()
 	BaseClass::Paint();
 	//PaintFontTest();
 	MDLCACHE_CRITICAL_SECTION();
-	PaintMarineNameLabels();
-	PaintBoxesAroundUseEntities();
+	//PaintMarineNameLabels();
+	//PaintBoxesAroundUseEntities();
 	C_ASW_Player* pPlayer = C_ASW_Player::GetLocalASWPlayer();
 	if (pPlayer)
 	{

@@ -2964,3 +2964,18 @@ CBaseEntity* CASW_Player::FindPickerEntity()
 	return pNearestEntity;
 }
 
+const Vector& CASW_Player::GetCrosshairTracePos()
+{
+	trace_t tr;
+	Vector forward;
+	Vector shootposition = GetMarine()->Weapon_ShootPosition();
+	EyeVectors(&forward);
+	UTIL_TraceLine(shootposition,
+		shootposition + forward * MAX_COORD_RANGE,
+		MASK_SOLID, this, COLLISION_GROUP_NONE, &tr);
+	if (tr.DidHit())
+	{
+		return tr.endpos;
+	}
+	return m_vecCrosshairTracePos;
+}

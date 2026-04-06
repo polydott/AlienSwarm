@@ -56,7 +56,6 @@ public:
 	virtual float GetTurnRateModifier();
 	virtual float GetMadFiringBias() { return 1.0f; }	// scales the rate at which the mad firing counter goes up when we shoot aliens with this weapon
 	virtual void OnStoppedFiring();
-	virtual void OnStartedRoll();
 	virtual bool IsFiring();// const;
 	virtual void ClearIsFiring();
 	virtual void GetButtons(bool& bAttack1, bool& bAttack2, bool& bReload, bool& bOldReload, bool& bOldAttack1 );

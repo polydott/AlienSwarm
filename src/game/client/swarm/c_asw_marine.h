@@ -11,6 +11,8 @@
 #include "asw_playeranimstate.h"
 #include "beamdraw.h"
 #include "object_motion_blur_effect.h"
+#include <c_baseplayer.h>
+#include <dlight.h>
 
 class C_ASW_Player;
 class C_ASW_Marine_Resource;
@@ -31,6 +33,7 @@ class CNewParticleEffect;
 class CASW_Melee_Attack;
 
 #define CASW_Remote_Turret C_ASW_Remote_Turret
+#define CASW_Marine C_ASW_Marine
 
 class C_ASW_Marine : public C_ASW_VPhysics_NPC, public IASWPlayerAnimStateHelpers
 {
@@ -53,6 +56,7 @@ public:
 	// camera
 	virtual const QAngle& GetRenderAngles();
 	virtual int DrawModel( int flags, const RenderableInstance_t &instance );
+	//virtual bool ShouldDraw(void);
 	virtual const QAngle& ASWEyeAngles( void );	
 	virtual void BuildTransformations( CStudioHdr *pHdr, Vector *pos, Quaternion q[], const matrix3x4_t& cameraTransform, int boneMask, CBoneBitList &boneComputed );	// for left hand IK	
 	Vector EyePosition(void);
@@ -61,6 +65,31 @@ public:
 	virtual const Vector& GetRenderOrigin();
 	virtual void MouseOverEntity(C_BaseEntity* pEnt, Vector vecCrosshairAimingPos);
 		
+	// Is the player dead?
+	bool				IsMarineDead();
+
+	// PLAYER PARITY!!!!
+
+	virtual void OnEmitFootstepSound(const CSoundParameters& params, const Vector& vecOrigin, float fVolume) {}
+
+	float			m_flStepSoundTime;
+
+	virtual const Vector	GetPlayerMins(void) const; // uses local player
+	virtual const Vector	GetPlayerMaxs(void) const; // uses local player
+
+	virtual surfacedata_t* GetLadderSurface(const Vector& origin);
+
+	virtual surfacedata_t* GetFootstepSurface(const Vector& origin, const char* surfaceName);
+
+	void					UpdatePlayerSound(void);
+	virtual void			UpdateStepSound(surfacedata_t* psurface, const Vector& vecOrigin, const Vector& vecVelocity);
+	void					PlayStepSound( surfacedata_t* psurface, Vector& vecOrigin, float fvol, bool force);
+	void					PlayMarineStepSound( surfacedata_t* psurface, Vector& vecOrigin, float fvol, bool force);
+	virtual const char*		GetOverrideStepSound(const char* pszBaseStepSoundName) { return pszBaseStepSoundName; }
+	virtual void			GetStepSoundVelocities(float* velwalk, float* velrun);
+	virtual void			SetStepSoundTime(stepsoundtimes_t iStepSoundTime, bool bWalking);
+	virtual const char*		GetSceneSoundToken(void) { return ""; }
+
 	// networking
 	void NotifyShouldTransmit( ShouldTransmitState_t state );	
 	virtual void UpdateClientSideAnimation();
@@ -80,6 +109,37 @@ public:
 	bool m_bUseLastRenderedEyePosition;
 	bool m_bLastNoDraw;
 	
+	// Data common to all other players, too
+	CPlayerState			pl;
+
+	// true if the player is dead
+	CNetworkVar(bool, deadflag);
+	int			deaths;
+
+	int						m_nStepside;
+	int						m_nOldButtons;
+	float					m_flFOVRate;		// rate at which the FOV changes
+
+	int						m_iHideHUD;			// bitfields containing sections of the HUD to hide
+	int						m_nDuckTimeMsecs;
+	int						m_nDuckJumpTimeMsecs;
+	int						m_nJumpTimeMsecs;
+
+	float					m_flWaterJumpTime;  // used to be called teleport_time
+	float					m_flFallVelocity;
+	float					m_flStepSize;
+
+	CNetworkQAngle( m_vecPunchAngle );		// auto-decaying view angle adjustment
+	CNetworkQAngle( m_vecPunchAngleVel );		// velocity of auto-decaying view angle adjustment
+
+	bool					m_bDucked;
+	bool					m_bDucking;
+	bool					m_bInDuckJump;
+	bool					m_bDrawViewmodel;
+	bool					m_bWearingSuit;
+	bool					m_bPoisoned;
+	bool					m_bAllowAutoMovement;
+
 	// ammo
 	int GetAllAmmoCount( void );
 	int GetTotalAmmoCount(int iAmmoIndex);
@@ -110,7 +170,10 @@ public:
 	Vector GetOffhandThrowSource( const Vector *vecStandingPos = NULL );
 	virtual bool IsFiring();
 
-	bool ShouldPreventLaserSight() { return m_flPreventLaserSightTime.Get() > gpGlobals->curtime; }
+	bool ShouldPreventLaserSight() 
+	{ 
+		return true; 
+	}
 	CNetworkVar( float, m_flPreventLaserSightTime );
 
 	// shadow
@@ -135,7 +198,6 @@ public:
 
 	// sound
 	surfacedata_t* GetGroundSurface();
-	void PlayStepSound( Vector &vecOrigin, surfacedata_t *psurface, float fvol, bool force );
 	void MarineStepSound( surfacedata_t *psurface, const Vector &vecOrigin, const Vector &vecVelocity );
 	void DoWaterRipples();
 
@@ -160,7 +222,6 @@ public:
 	float m_fStopMarineTime;
 	float MaxSpeed();
 	virtual void					EstimateAbsVelocity( Vector& vel );	// asw made virtual
-	int m_nOldButtons;
 	CNetworkVar(bool, m_bPreventMovement);
 	CNetworkVar( bool, m_bWalking );
 
@@ -392,8 +453,29 @@ public:
 	CNetworkVar( int, m_iForcedActionRequest );
 	static C_ASW_Marine* GetLocalMarine();
 
+	int CurrentCommandNumber() const;
+
+	CUserCmd* m_pCurrentCommand;
+
+	// Data for only the local player
+	CNetworkVarEmbedded(CPlayerLocalData, m_Local);
+
+	// Data common to all other players, too
+	//CPlayerState			pl;
+
+	//float			m_flWaterJumpTime;  // used to be called teleport_time
+
 private:
 	CMotionBlurObject m_MotionBlurObject;
+
+	struct StepSoundCache_t
+	{
+		StepSoundCache_t() : m_usSoundNameIndex(0) {}
+		CSoundParameters	m_SoundParameters;
+		unsigned short		m_usSoundNameIndex;
+	};
+	// One for left and one for right side of step
+	StepSoundCache_t		m_StepSoundCache[2];
 
 	C_ASW_Marine( const C_ASW_Marine & ); // not defined, not accessible
 	float m_fLastYawHack, m_fLastPitchHack;
@@ -413,5 +495,10 @@ inline C_ASW_Marine *C_ASW_Marine::AsMarine( CBaseEntity *pEnt )
 	return ( pEnt && pEnt->Classify() == CLASS_ASW_MARINE ) ? assert_cast<C_ASW_Marine *>(pEnt) : NULL;
 }
 
+inline int C_ASW_Marine::CurrentCommandNumber() const
+{
+	Assert(m_pCurrentCommand);
+	return m_pCurrentCommand->command_number;
+}
 
 #endif // _INCLUDED_C_ASW_MARINE_H

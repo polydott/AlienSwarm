@@ -77,8 +77,6 @@ protected:
 	// Set ground data, etc.
 	void			FinishMove( void );
 
-	virtual float	CalcRoll( const QAngle &angles, const Vector &velocity, float rollangle, float rollspeed );
-
 	virtual	void	DecayPunchAngle( void );
 
 	void			CheckWaterJump(void );
@@ -189,6 +187,8 @@ protected:
 
 	void			CheckFalling( void );
 
+	virtual void	PlayerRoughLandingEffects(float fvol);
+
 	void			PlayerWaterSounds( void );
 
 	void ResetGetPointContentsCache();
@@ -234,7 +234,7 @@ protected:
 
 private:
 	// Performs the collision resolution for fliers.
-	void			PerformFlyCollisionResolution( trace_t &pm, Vector &move );
+	//void			PerformFlyCollisionResolution( trace_t &pm, Vector &move );
 
 	void			StepMove( Vector &vecDestination, trace_t &trace );
 
