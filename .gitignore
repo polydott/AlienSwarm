@@ -41,3 +41,12 @@ config.cfg
 # shader files
 *.tmp
 
+*.db
+*.db
+*.vsidx
+*.json
+*.bin
+*.txt
+*.filters
+*.vpc_crc
+*.sentinel
