@@ -491,14 +491,18 @@ void asw_hide_marine_f()
 		if (pPlayer->GetMarine()->IsEffectActive(EF_NODRAW))
 		{
 			pPlayer->GetMarine()->RemoveEffects( EF_NODRAW );
+			if (pPlayer->GetMarine()->GetActiveWeapon())
+				pPlayer->GetMarine()->GetActiveWeapon()->RemoveEffects( EF_NODRAW );
 		}
 		else
 		{
 			pPlayer->GetMarine()->AddEffects( EF_NODRAW );
+			if (pPlayer->GetMarine()->GetActiveWeapon())
+				pPlayer->GetMarine()->GetActiveWeapon()->AddEffects( EF_NODRAW );
 		}
 	}
 }
-ConCommand asw_hide_marine( "asw_hide_marine", asw_hide_marine_f, "Toggle drawing of the current marine" );
+ConCommand asw_hide_marine( "asw_hide_marine", asw_hide_marine_f, "Toggle drawing of the current marine", FCVAR_CHEAT );
 
 void asw_ragdoll_marine_f()
 {

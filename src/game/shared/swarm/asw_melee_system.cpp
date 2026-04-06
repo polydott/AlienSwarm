@@ -10,11 +10,9 @@
 	#include "ivieweffects.h"
 	#include "asw_input.h"
 	#include "prediction.h"
-	#include "c_baseplayer.h"
 	#define CASW_Player C_ASW_Player
 	#define CASW_Marine C_ASW_Marine
 	#define CASW_Game_Resource C_ASW_Game_Resource
-
 #else
 	#include "asw_player.h"
 	#include "asw_marine.h"
@@ -25,27 +23,20 @@
 	#include "asw_missile_round_shared.h"
 	#include "asw_marine_resource.h"
 #endif
-#include "asw_util_shared.h"
-#include "asw_marine_profile.h"
-#include "asw_marine_gamemovement.h"
-#include "in_buttons.h"
-#include <stdarg.h>
-#include "movevars_shared.h"
-#include "engine/IEngineTrace.h"
-#include "SoundEmitterSystem/isoundemittersystembase.h"
-#include "decals.h"
-#include "asw_shareddefs.h"
-#include "coordsize.h"
-#include "asw_melee_system.h"
-#include "asw_movedata.h"
-#include "asw_marine_skills.h"
 #include "asw_gamerules.h"
-#include "particle_parse.h"
+#include "in_buttons.h"
 #include "npcevent.h"
 #include "eventlist.h"
+#include "asw_shareddefs.h"
+#include "asw_util_shared.h"
+#include "asw_marine_profile.h"
 #include "basecombatweapon_shared.h"
 #include "igamemovement.h"
 #include "filesystem.h"
+#include "asw_melee_system.h"
+#include "asw_marine_skills.h"
+#include "asw_gamerules.h"
+#include "asw_movedata.h"
 #include "datacache/imdlcache.h"
 #include "asw_weapon_blink.h"
 #include "asw_weapon_jump_jet.h"
@@ -90,6 +81,7 @@ ConVar asw_melee_lock_slide_speed( "asw_melee_lock_slide_speed", "200", FCVAR_CH
 mstudioevent_for_client_server_t *GetEventIndexForSequence( mstudioseqdesc_t &seqdesc );
 void SetEventIndexForSequence( mstudioseqdesc_t &seqdesc );
 
+int CASW_Melee_System::s_nRollAttackID = -1;
 int CASW_Melee_System::s_nKnockdownForwardAttackID = -1;
 int CASW_Melee_System::s_nKnockdownBackwardAttackID = -1;
 
@@ -131,6 +123,7 @@ void CASW_Melee_System::LoadMeleeAttacks()
 
 	LinkUpCombos();
 
+	CASW_Melee_System::s_nRollAttackID = GetMeleeAttackByName( "Roll" ) ? GetMeleeAttackByName( "Roll" )->m_nAttackID : -1;
 	CASW_Melee_System::s_nKnockdownForwardAttackID = GetMeleeAttackByName( "KnockdownForward" ) ? GetMeleeAttackByName( "KnockdownForward" )->m_nAttackID : -1;
 	CASW_Melee_System::s_nKnockdownBackwardAttackID = GetMeleeAttackByName( "KnockdownBackward" ) ? GetMeleeAttackByName( "KnockdownBackward" )->m_nAttackID : -1;
 }
@@ -242,7 +235,34 @@ void CASW_Melee_System::ProcessMovement( CASW_Marine *pMarine, CMoveData *pMoveD
 		m_bAttacksValidated = true;
 	}
 
+	//if ( pMarine->IsMeleeInhibited() )
+	//{
+		//return;
+	//}
+
+	//CASW_Weapon *pWeapon = pMarine->GetActiveASWWeapon();
+#ifdef MELEE_CHARGE_ATTACKS
+	int nMeleeButton = MELEE_BUTTON;
+	int nAltPressed = nMeleeButton & ((pMoveData->m_nOldButtons ^ pMoveData->m_nButtons) & pMoveData->m_nButtons);
+
+	if ( nAltPressed || !(pMoveData->m_nOldButtons & nMeleeButton) )
+	{
+		pMarine->m_flMeleeHeavyKeyHoldStart = gpGlobals->curtime;	
+	}
+
+	if ( (pMoveData->m_nButtons & nMeleeButton) &&
+		gpGlobals->curtime >= (pMarine->m_flMeleeHeavyKeyHoldStart + MELEE_CHARGE_SWITCH_START) )
+	{
+		pMarine->m_bMeleeHeavyKeyHeld = true;
+	}
+	else
+	{
+		pMarine->m_bMeleeHeavyKeyHeld = false;
+	}
+	int nButtonsActivated = (pMoveData->m_nButtons ^ pMoveData->m_nOldButtons) & pMoveData->m_nOldButtons;		// in charge attack mode, we have to initiate melee on mouse up
+#else
 	int nButtonsActivated = (pMoveData->m_nButtons ^ pMoveData->m_nOldButtons) & pMoveData->m_nButtons;
+#endif
 
 	CASW_Melee_Attack *pAttack = pMarine->GetCurrentMeleeAttack();
 	bool bStumbling = ( pAttack &&
@@ -256,7 +276,6 @@ void CASW_Melee_System::ProcessMovement( CASW_Marine *pMarine, CMoveData *pMoveD
 			  !Q_stricmp( pAttack->m_szAttackName, "StumbleShortBackward" )
 			)
 		);
-
 	bool bKnockedDown = ( pAttack && 
 		( !Q_stricmp( pAttack->m_szAttackName, "KnockdownForward" ) ||
 		!Q_stricmp( pAttack->m_szAttackName, "KnockdownBackward" ) ) );
@@ -375,6 +394,10 @@ void CASW_Melee_System::ProcessMovement( CASW_Marine *pMarine, CMoveData *pMoveD
 		{
 			OnMeleePressed( pMarine, pMoveData );
 		}
+		if ( pMoveData->m_nButtons & IN_JUMP )
+		{
+			OnJumpPressed( pMarine, pMoveData );
+		}
 	}
 
 	if ( pMarine && pMarine->GetCurrentMeleeAttack() )
@@ -431,6 +454,60 @@ void CASW_Melee_System::OnMeleePressed( CASW_Marine *pMarine, CMoveData *pMoveDa
 		}
 	}
 	StartMeleeAttack( m_candidateMeleeAttacks[ SharedRandomInt( "MeleeChoice", m_candidateMeleeAttacks.Count() - iCount, m_candidateMeleeAttacks.Count() - 1 ) ], pMarine, pMoveData );
+}
+
+// do rolls when jump is pressed
+void CASW_Melee_System::OnJumpPressed( CASW_Marine *pMarine, CMoveData *pMoveData )
+{
+	if ( !pMarine || !pMoveData || !pMarine->GetMarineProfile() || !ASWGameRules() )
+		return;
+
+	if ( !asw_marine_rolls.GetBool() )
+		return;
+
+	// no rolling if in the middle of an attack
+	if ( pMarine->GetCurrentMeleeAttack() )
+		return;
+
+	CASW_Weapon *pWeapon = pMarine->GetActiveASWWeapon();
+	if ( pWeapon )
+	{
+		pWeapon->OnStartedRoll();
+	}
+	
+	StartMeleeAttack( GetMeleeAttackByID( CASW_Melee_System::s_nRollAttackID ), pMarine, pMoveData );
+	QAngle angRollDir = vec3_angle;
+	if ( pMoveData->m_flSideMove == 0.0f && pMoveData->m_flForwardMove == 0.0f )
+	{
+		pMarine->m_flMeleeYaw = pMarine->ASWEyeAngles()[ YAW ];
+	}
+	else
+	{
+		pMarine->m_flMeleeYaw = RAD2DEG(atan2(-pMoveData->m_flSideMove, pMoveData->m_flForwardMove)) + ASWGameRules()->GetTopDownMovementAxis()[YAW];	// assumes 45 degree cam!
+	}
+	pMarine->m_bFaceMeleeYaw = true;
+
+	// see if we just dodged any ranger shots
+#ifdef GAME_DLL
+	CASW_Player *pPlayer = pMarine->GetCommander();
+	if ( pPlayer && pMarine->IsInhabited() )
+	{
+		const float flNearby = 150.0f;
+		const float flNearbySqr = flNearby * flNearby;
+		int nCount = g_vecMissileRounds.Count();
+		for ( int i = 0; i < nCount; i++ )
+		{
+			if ( pMarine->GetAbsOrigin().DistToSqr( g_vecMissileRounds[i]->GetAbsOrigin() ) <= flNearbySqr )
+			{
+				pPlayer->AwardAchievement( ACHIEVEMENT_ASW_DODGE_RANGER_SHOT );
+				if ( pMarine->GetMarineResource() )
+				{
+					pMarine->GetMarineResource()->m_bDodgedRanger = true;
+				}
+			}
+		}
+	}
+#endif
 }
 
 void CASW_Melee_System::UpdateCandidateMeleeAttacks( CASW_Marine *pMarine, CMoveData *pMoveData )
@@ -771,7 +848,7 @@ void CASW_Melee_System::SetupMeleeMovement( CASW_Marine *pMarine, CMoveData *pMo
 		return;
 	}
 
-	if ( pMarine->m_iMeleeAllowMovement == MELEE_MOVEMENT_FULL && gpGlobals->frametime > 0 )
+	if ( pMarine->m_iMeleeAllowMovement == MELEE_MOVEMENT_ANIMATION_ONLY && gpGlobals->frametime > 0 )
 	{
 		pMarine->GetSequenceMovement( iMiscSequence, pMarine->m_flMeleeLastCycle, flMiscCycle, vecDeltaPos, vecDeltaAngles );
 		VectorYawRotate( vecDeltaPos, pMarine->m_flMeleeYaw, vecDeltaPos );
@@ -951,7 +1028,7 @@ void CASW_Melee_System::OnMeleeAttackFinished( CASW_Marine *pMarine )
 	pMarine->m_bMeleeComboKeypressAllowed = false;
 	pMarine->m_bMeleeComboKeyPressed = false;
 	pMarine->m_bMeleeComboTransitionAllowed = false;
-	pMarine->m_iMeleeAllowMovement = MELEE_MOVEMENT_FULL;
+	pMarine->m_iMeleeAllowMovement = MELEE_MOVEMENT_ANIMATION_ONLY;
 	pMarine->m_bMeleeChargeActivate = false;
 
 #ifdef MELEE_CHARGE_ATTACKS
@@ -976,7 +1053,7 @@ void CASW_Melee_System::OnMeleeAttackFinished( CASW_Marine *pMarine )
 CASW_Melee_Attack::CASW_Melee_Attack()
 {
 	m_nAttackID = 0;
-	m_iAllowMovement = MELEE_MOVEMENT_FULL;
+	m_iAllowMovement = MELEE_MOVEMENT_ANIMATION_ONLY;
 	m_pOnCollisionDoAttack = NULL;
 	m_pForceComboAttack = NULL;
 	m_ControlDirection = ASW_CD_ANY;
@@ -1000,7 +1077,7 @@ void CASW_Melee_Attack::ApplyKeyValues( KeyValues *pKeys )
 	m_flForceScale = pKeys->GetFloat( "ForceScale", 1.0f );
 	m_flTraceDistance = pKeys->GetFloat( "TraceDistance", 0.0f );
 	m_flTraceHullSize = pKeys->GetFloat( "TraceHullSize", 0.0f );
-	m_iAllowMovement = (ASW_Melee_Movement_t) pKeys->GetInt( "AllowMovement", 1 );
+	m_iAllowMovement = (ASW_Melee_Movement_t) pKeys->GetInt( "AllowMovement", 0 );
 	m_bAllowRotation = pKeys->GetBool( "AllowRotation", true );
 	m_vTraceAttackOffset.x = pKeys->GetFloat( "TraceAttackOffsetRight", 0.0f );
 	m_vTraceAttackOffset.y = pKeys->GetFloat( "TraceAttackOffsetForward", 0.0f );
@@ -1168,7 +1245,49 @@ void CASW_Melee_System::FindMeleeLockTarget( CASW_Marine *pMarine )
 
 void CASW_Melee_System::CreateMove( float flInputSampleTime, CUserCmd *pCmd, CASW_Marine *pMarine )
 {
-	return;
+	// don't replace the move if our current melee attack lets us move about freely
+	if ( pMarine->m_iMeleeAllowMovement != MELEE_MOVEMENT_ANIMATION_ONLY )
+		return;
+
+	if ( pMarine->m_bFaceMeleeYaw )
+	{
+		pCmd->viewangles[ YAW ] = pMarine->m_flMeleeYaw;
+	}
+
+	if ( asw_melee_lock.GetBool() )
+	{
+		// TODO: This breaks direction detection once we start melee'ing.
+		pCmd->forwardmove = 0;
+		pCmd->sidemove = 0;	
+
+		// set forwardmove to the number of units we wish to move this movement tick
+		C_BaseEntity *pEnemy = pMarine->m_hMeleeLockTarget.Get();
+		if ( pEnemy )
+		{
+			Vector dir = pEnemy->GetAbsOrigin() - pMarine->GetAbsOrigin();
+			float flDist = dir.NormalizeInPlace();
+			Vector vecForward;
+			AngleVectors( pMarine->ASWEyeAngles(), &vecForward );
+			float flDot = dir.Dot( vecForward );
+			if ( flDot > 0.7f )
+			{
+				float flIdealDist = pEnemy->CollisionProp()->BoundingRadius2D() + asw_melee_lock_distance.GetFloat();
+				flDist -= flIdealDist;		// distance to our ideal spot
+				
+				float flSlideAmount = asw_melee_lock_slide_speed.GetFloat() * flInputSampleTime;
+				if ( flDist > 0 )
+				{
+					flSlideAmount = MIN( flDist, flSlideAmount );
+				}
+				else
+				{
+					flSlideAmount = MAX( flDist, -flSlideAmount );
+				}
+				pCmd->forwardmove = flSlideAmount;
+			}
+			pCmd->buttons |= IN_MELEE_LOCK;
+		}
+	}
 }
 #endif
 

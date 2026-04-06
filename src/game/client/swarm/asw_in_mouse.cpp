@@ -40,16 +40,16 @@ void CASWInput::ActivateMouse (void)
 void CASWInput::ResetMouse( void )
 {
 	int x, y;
-
-	if (MarineDidPrice() || !asw_controls.GetBool())
+	HACK_GETLOCALPLAYER_GUARD( "Mouse behavior is tied to a specific player's status - splitscreen player would depend on which player (if any) is using mouse control" );
+	if (MarineControllingTurret() || !asw_controls.GetBool())
 	{
-		GetMousePos(x, y);	// asw instead of GetWindowCenter, so mouse doesn't move 
-		SetMousePos(x, y);   //asw by price
+		GetWindowCenter( x,  y );
+		SetMousePos( x, y );
 	}
 	else
-	{
-		GetWindowCenter(x, y);
-		SetMousePos(x, y);
+	{		
+		GetMousePos( x, y );	// asw instead of GetWindowCenter, so mouse doesn't move
+		SetMousePos( x, y );
 	}
 }
 
@@ -77,24 +77,51 @@ void CASWInput::AccumulateMouse( int nSlot )
 //-----------------------------------------------------------------------------
 void CASWInput::ApplyMouse( int nSlot, QAngle& viewangles, CUserCmd *cmd, float mouse_x, float mouse_y )
 {
-	int current_posx, current_posy;
+	int current_posx, current_posy;	
 	GetMousePos(current_posx, current_posy);
 
-	if (ASWInput()->ControllerModeActive())
+
+	if ( ASWInput()->ControllerModeActive() )
 		return;
-	//by price
-	if (MarineDidPrice() || !asw_controls.GetBool())
+		
+	if ( asw_controls.GetBool() && !MarineControllingTurret() )
 	{
-		TurnTowardMouse(viewangles, cmd);
+		TurnTowardMouse( viewangles, cmd );
+
+		// Re-center the mouse.
+
 		// force the mouse to the center, so there's room to move
 		ResetMouse();
-		SetMousePos(current_posx, current_posy);	// asw - swarm wants it unmoved (have to reset to stop buttons locking)
+		SetMousePos( current_posx, current_posy );	// asw - swarm wants it unmoved (have to reset to stop buttons locking)
 	}
+	else
+	{
+		if ( MarineControllingTurret() )
+		{					
+			// accelerate up the mouse intertia
+			static float mouse_x_accumulated = 0;
+			static float mouse_y_accumulated = 0;
 
-	CInput::ApplyMouse(nSlot, viewangles, cmd, mouse_x, mouse_y);
+			// decay it
+			mouse_x_accumulated *= 0.95f;
+			mouse_y_accumulated *= 0.95f;
 
-	// force the mouse to the center, so there's room to move
-	ResetMouse();
+			mouse_x_accumulated += mouse_x * 0.04f;
+			mouse_y_accumulated += mouse_y * 0.04f;
+
+			// clamp it
+			mouse_x_accumulated = clamp(mouse_x_accumulated, -500.0f,500.0f);
+			mouse_y_accumulated = clamp(mouse_y_accumulated, -500.0f,500.0f);
+
+			// move with our inertia style
+			mouse_x = mouse_x_accumulated;
+			mouse_y = mouse_y_accumulated;
+		}
+		CInput::ApplyMouse( nSlot, viewangles, cmd, mouse_x, mouse_y );
+
+		// force the mouse to the center, so there's room to move
+		ResetMouse();
+	}
 }
 
 void CASWInput::GetFullscreenMousePos( int *mx, int *my, int *unclampedx /*=NULL*/, int *unclampedy /*=NULL*/ )

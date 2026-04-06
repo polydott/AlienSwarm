@@ -114,7 +114,7 @@ public:
 	void				CalcViewRoll( QAngle& eyeAngles );
 	virtual void		CalcViewBob( Vector& eyeOrigin );
 	void				CreateWaterEffects( void );
-	bool				IsInEye(void);
+
 	virtual void			SetPlayerUnderwater( bool state );
 	void					UpdateUnderwaterState( void );
 	bool					IsPlayerUnderwater( void ) { return m_bPlayerUnderwater; }

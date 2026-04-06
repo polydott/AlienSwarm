@@ -67,7 +67,7 @@ ConVar asw_flashlight_marine_ambient("asw_flashlight_marine_ambient", "0.1", FCV
 ConVar asw_flashlight_marine_lightscale("asw_flashlight_marine_lightscale", "1.0", FCVAR_CHEAT, "Light scale on the marine with flashlight on");
 ConVar asw_left_hand_ik("asw_left_hand_ik", "0", FCVAR_CHEAT, "IK the marine's left hand to his weapon");
 ConVar asw_marine_shoulderlight("asw_marine_shoulderlight", "2", 0, "Should marines have a shoulder light effect on them.");
-ConVar asw_hide_local_marine("asw_hide_local_marine", "1", FCVAR_CHEAT, "If enabled, your current marine will be invisible");
+ConVar asw_hide_local_marine("asw_hide_local_marine", "0", FCVAR_CHEAT, "If enabled, your current marine will be invisible");
 ConVar asw_override_footstep_volume( "asw_override_footstep_volume", "0", FCVAR_CHEAT, "Overrides footstep volume instead of it being surface dependent" );
 ConVar asw_marine_object_motion_blur_scale( "asw_marine_object_motion_blur_scale", "0.0" );
 ConVar asw_damage_spark_rate( "asw_damage_spark_rate", "0.24", FCVAR_CHEAT, "Base number of seconds between spark sounds/effects at critical damage." );
@@ -92,7 +92,6 @@ void RecvProxy_Marine_LocalVelocityZ( const CRecvProxyData *pData, void *pStruct
 IMPLEMENT_NETWORKCLASS_ALIASED( ASW_Marine, DT_ASW_Marine )
 
 BEGIN_NETWORK_TABLE( CASW_Marine, DT_ASW_Marine )
-	RecvPropDataTable(RECVINFO_DT(pl), 0, &REFERENCE_RECV_TABLE(DT_ASW_Marine), DataTableRecvProxy_StaticDataTable),
 	RecvPropVectorXY( RECVINFO_NAME( m_vecNetworkOrigin, m_vecOrigin ), 0, C_BasePlayer::RecvProxy_LocalOriginXY ),
 	RecvPropFloat( RECVINFO_NAME( m_vecNetworkOrigin[2], m_vecOrigin[2] ), 0, C_BasePlayer::RecvProxy_LocalOriginZ ),
 
@@ -103,8 +102,6 @@ BEGIN_NETWORK_TABLE( CASW_Marine, DT_ASW_Marine )
 	RecvPropFloat( RECVINFO_NAME( m_angNetworkAngles[0], m_angRotation[0] ) ),
 	RecvPropFloat( RECVINFO_NAME( m_angNetworkAngles[1], m_angRotation[1] ) ),
 	RecvPropFloat( RECVINFO_NAME( m_angNetworkAngles[2], m_angRotation[2] ) ),
-
-	RecvPropInt(RECVINFO(deadflag)),
 
 	RecvPropFloat		( RECVINFO( m_fAIPitch ) ),
 	RecvPropInt			( RECVINFO( m_fFlags) ),
@@ -203,14 +200,13 @@ BEGIN_PREDICTION_DATA( C_ASW_Marine )
 	DEFINE_PRED_FIELD( m_bWalking, FIELD_BOOLEAN, FTYPEDESC_INSENDTABLE ),
 	DEFINE_PRED_FIELD_TOL( m_flPreventLaserSightTime, FIELD_FLOAT, FTYPEDESC_INSENDTABLE, TD_MSECTOLERANCE ),
 	DEFINE_PRED_FIELD( m_iJumpJetting, FIELD_INTEGER, FTYPEDESC_INSENDTABLE ),
-	DEFINE_PRED_TYPEDESCRIPTION(pl, CPlayerState),
 
 	DEFINE_FIELD( m_nOldButtons, FIELD_INTEGER ),
 	DEFINE_FIELD( m_surfaceFriction, FIELD_FLOAT ),
 	DEFINE_FIELD( m_vecMeleeStartPos, FIELD_VECTOR ),
 	DEFINE_FIELD( m_flMeleeStartTime, FIELD_FLOAT ),
 	DEFINE_FIELD( m_flMeleeLastCycle, FIELD_FLOAT ),
-	DEFINE_FIELD(m_flWaterJumpTime, FIELD_FLOAT),
+	
 	DEFINE_FIELD( m_bMeleeCollisionDamage, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bMeleeComboKeypressAllowed, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bMeleeComboKeyPressed, FIELD_BOOLEAN ),
@@ -430,7 +426,6 @@ C_ASW_Marine::C_ASW_Marine() :
 	m_bClientElectrifiedArmor = false;
 	m_fFireExtinguisherTime = 0;
 	m_fNextHeartbeat = 0;
-	m_flWaterJumpTime = 0;
 	m_iOldHealth = m_iHealth;
 	m_fLastHealTime = 0.0f;
 	m_vecFacingPoint = vec3_origin;	
@@ -482,32 +477,25 @@ C_ASW_Marine::~C_ASW_Marine()
 	if (m_hOrderArrow.Get())
 		m_hOrderArrow->Release();
 
-	if (m_hLowHeathEffect)
+	if ( m_hLowHeathEffect )
 	{
-		m_hLowHeathEffect->StopEmission(false, false, true);
+		m_hLowHeathEffect->StopEmission(false, false , true);
 		m_hLowHeathEffect = NULL;
 	}
 
-	if (m_hCriticalHeathEffect)
+	if ( m_hCriticalHeathEffect )
 	{
-		m_hCriticalHeathEffect->StopEmission(false, false, true);
+		m_hCriticalHeathEffect->StopEmission(false, false , true);
 		m_hCriticalHeathEffect = NULL;
 	}
 
-	if (m_hSentryBuildDisplay)
+	if ( m_hSentryBuildDisplay )
 	{
-		m_hSentryBuildDisplay->StopEmission(false, false, true);
+		m_hSentryBuildDisplay->StopEmission(false, false , true);
 		m_hSentryBuildDisplay = NULL;
 	}
 }
 
-//-----------------------------------------------------------------------------
-// Is the player dead?
-//-----------------------------------------------------------------------------
-bool C_ASW_Marine::IsMarineDead()
-{
-	return pl.deadflag == true;
-}
 
 bool C_ASW_Marine::ShouldPredict()
 {
@@ -625,6 +613,22 @@ const Vector& C_ASW_Marine::GetRenderOrigin()
 {
 	m_vecCustomRenderOrigin = GetAbsOrigin();
 
+	/*
+	if (m_PlayerAnimState && !m_PlayerAnimState->IsAnimatingJump())
+	{
+		C_BaseEntity *pEnt = cl_entitylist->FirstBaseEntity();
+		while (pEnt)
+		{
+			if (FClassnameIs(pEnt, "class C_DynamicProp"))
+			{
+				//Msg("Setting z to %f\n", pEnt->GetAbsOrigin().z + 10);
+				m_vecCustomRenderOrigin.z = pEnt->GetAbsOrigin().z + 10;			
+				break;
+			}
+			pEnt = cl_entitylist->NextBaseEntity( pEnt );
+		}
+	}
+	*/
 	if (IsInhabited())
 	{
 		Vector vSmoothOffset;
@@ -787,23 +791,6 @@ void C_ASW_Marine::ClientThink()
 		m_fInfestedTime -= deltatime;
 	}
 	
-	CASW_Player* pPlayer = ToASW_Player(C_BasePlayer::GetLocalPlayer());
-
-	if (asw_hide_local_marine.GetBool())
-	{
-		if (pPlayer->GetMarine())
-		{
-			pPlayer->GetMarine()->SetRenderMode(kRenderNone);
-		}
-	}
-	else
-	{
-		if (pPlayer->GetMarine())
-		{
-			pPlayer->GetMarine()->SetRenderMode(kRenderNormal);
-		}
-	}
-
 	//Vector light_pos = engine->GetClosestLightLocation(GetAbsOrigin());
 	//m_ShadowDirection.x = RandomFloat( -1.0, 1.0 );
 	//m_ShadowDirection.y = RandomFloat( -1.0, 1.0 );
@@ -1382,7 +1369,7 @@ void C_ASW_Marine::MarineStepSound( surfacedata_t *psurface, const Vector &vecOr
 		fvol *= 0.65;
 	}
 
-	PlayMarineStepSound( psurface, feet, fvol, false );
+	PlayStepSound( feet, psurface, fvol, false );
 }
 
 const char *C_ASW_Marine::GetMarineFootprintParticleName( surfacedata_t *psurface )
@@ -1463,7 +1450,7 @@ surfacedata_t* C_ASW_Marine::GetGroundSurface()
 	return physprops->GetSurfaceData( trace.surface.surfaceProps );
 }
 
-void C_ASW_Marine::PlayMarineStepSound( surfacedata_t *psurface, Vector& vecOrigin, float fvol, bool force )
+void C_ASW_Marine::PlayStepSound( Vector &vecOrigin, surfacedata_t *psurface, float fvol, bool force )
 {
 	if ( !psurface )
 		return;
@@ -1478,7 +1465,7 @@ void C_ASW_Marine::PlayMarineStepSound( surfacedata_t *psurface, Vector& vecOrig
 	const char *pSoundName = physprops->GetString( stepSoundName );
 	CSoundParameters params;
 	if ( !CBaseEntity::GetParametersForSound( pSoundName, params, NULL ) )
-			return;
+		return;
 
 	CLocalPlayerFilter filter;
 
@@ -1997,7 +1984,7 @@ void C_ASW_Marine::ReleaseFlashlightBeam( void )
 
 // EF_NODRAW isn't preventing the marine from being drawn, strangely.  So we do a visible check here before drawing.
 int C_ASW_Marine::DrawModel( int flags, const RenderableInstance_t &instance )
-{	
+{
 	if (!IsVisible())
 		return 0;	
 
@@ -2463,6 +2450,3 @@ void C_ASW_Marine::UpdateJumpJetEffects()
 		m_pJumpJetEffect[1] = NULL;
 	}
 }
-
-// Player Parity so that the Marine can function like the player.
-

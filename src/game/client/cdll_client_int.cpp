@@ -1098,13 +1098,6 @@ int CHLClient::Connect( CreateInterfaceFn appSystemFactory, CGlobalVarsBase *pGl
 
 int CHLClient::Init( CreateInterfaceFn appSystemFactory, CGlobalVarsBase *pGlobals )
 {
-	
-	if (engine->IsInGame()) 
-	{
-		engine->ExecuteClientCmd("asw_hide_marine\n");
-	}
-
-	CommandLine()->AppendParm("-force_vendor_id", "0x10DE");
 
 	COM_TimestampedLog( "ClientDLL factories - Start" );
 	// We aren't happy unless we get all of our interfaces.

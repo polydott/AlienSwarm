@@ -62,7 +62,7 @@ public:
 
 	const QAngle& EyeAngles();
 	virtual const QAngle& EyeAnglesWithCursorRoll();
-	const Vector& GetCrosshairTracePos();
+	const Vector& GetCrosshairTracePos() { return m_vecCrosshairTracePos; }
 	void SetCrosshairTracePos( const Vector &vecPos ) { m_vecCrosshairTracePos = vecPos; }
 	virtual void SetupVisibility( CBaseEntity *pViewEntity, unsigned char *pvs, int pvssize );
 
@@ -189,7 +189,7 @@ public:
 	bool m_bPrintedWantStartMessage;
 	bool m_bPrintedWantsContinueMessage;
 
-	//virtual void			CreateViewModel( int viewmodelindex = 0 ) { return; }	// ASW players don't have viewmodels
+	virtual void			CreateViewModel( int viewmodelindex = 0 ) { return; }	// ASW players don't have viewmodels
 	virtual void SetPunchAngle( const QAngle &punchAngle ) { return; }				// ASW players never use punch angle
 
 	void StartWalking( void );

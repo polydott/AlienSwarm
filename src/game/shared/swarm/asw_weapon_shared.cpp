@@ -1501,3 +1501,15 @@ void CASW_Weapon::OnStoppedFiring()
 {
 	// used by child classes
 }
+
+// marine has started doing a diving roll
+void CASW_Weapon::OnStartedRoll()
+{
+	if ( m_bFastReloadSuccess )
+		return;
+
+	// cancel reloading
+	m_bFastReloadSuccess = false;
+	m_bFastReloadFailure = false;
+	m_bInReload = false; 
+}

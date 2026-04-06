@@ -106,6 +106,7 @@ public:
 	void OnMeleePressed( CASW_Marine *pMarine, CMoveData *pMoveData );
 	void UpdateCandidateMeleeAttacks( CASW_Marine *pMarine, CMoveData *pMoveData );
 	void StartMeleeAttack( CASW_Melee_Attack *pAttack, CASW_Marine *pMarine, CMoveData *pMoveData, float flBaseMeleeDamage = -1 );
+	void OnJumpPressed( CASW_Marine *pMarine, CMoveData *pMoveData );
 	
 	void SetupMeleeMovement( CASW_Marine *pMarine, CMoveData *pMoveData );
 	void OnMeleeAttackFinished( CASW_Marine *pMarine );
@@ -133,6 +134,7 @@ public:
 	bool m_bAllowNormalAnimEvents;
 	bool m_bAttacksValidated;
 
+	static int s_nRollAttackID;
 	static int s_nKnockdownForwardAttackID;
 	static int s_nKnockdownBackwardAttackID;
 };

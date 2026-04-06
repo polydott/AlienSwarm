@@ -199,13 +199,11 @@ void ASW_StoreClearAll()
 	}
 }
 
-//price IsHacking
-
-bool MarineDidPrice()
-//by price
+// asw
+bool MarineControllingTurret()
 {
 	C_ASW_Player* pPlayer = C_ASW_Player::GetLocalASWPlayer();
-	return (pPlayer && pPlayer->GetMarine() && pPlayer->GetMarine()->IsHacking());
+	return (pPlayer && pPlayer->GetMarine() && pPlayer->GetMarine()->IsControllingTurret());
 }
 
 #define PI 3.14159265358979

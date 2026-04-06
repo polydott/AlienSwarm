@@ -230,6 +230,9 @@ void CASW_Missile_Round::DoLagCompensatedMarineCollision()
 		if ( !pMarine )
 			continue;
 
+		if ( pMarine->GetCurrentMeleeAttack() && pMarine->GetCurrentMeleeAttack()->m_nAttackID == CASW_Melee_System::s_nRollAttackID )
+			continue;
+
 		Vector vecPos = GetAbsOrigin();
 
 		if ( pMarine->IsInhabited() && sv_unlag_alien_projectiles.GetBool() )
@@ -313,7 +316,10 @@ void CASW_Missile_Round::MissileHit( CBaseEntity *pEnt, trace_t &tr )
 	if ( pEnt->Classify() == CLASS_ASW_MARINE )
 	{
 		CASW_Marine *pMarine = static_cast<CASW_Marine*>( pEnt );
-
+		if ( pMarine->GetCurrentMeleeAttack() && pMarine->GetCurrentMeleeAttack()->m_nAttackID == CASW_Melee_System::s_nRollAttackID )
+		{
+			return;
+		}
 		if ( pMarine->IsReflectingProjectiles() )
 		{
 			// TODO: ignore this marine (don't collide with him again)
