@@ -4593,7 +4593,12 @@ void CASW_MarineGameMovement::PlayerMove( void )
 
 	m_nOnLadder = 0;
 
-	//player->PlayStepSound((Vector&)mv->GetAbsOrigin(), marine->m_pSurfaceData, 1.0, true);
+// 	if ( CheckInterval( GROUND ) )
+// 	{
+// 		CategorizeGroundSurface();
+// 	}
+
+	marine->UpdateStepSound(player->m_pSurfaceData, mv->GetAbsOrigin(), mv->m_vecVelocity);
 
 	UpdateDuckJumpEyeOffset();
 	//Duck();		// asw, remove duck for now (causes strange z change when you jump)
@@ -4639,7 +4644,7 @@ void CASW_MarineGameMovement::PlayerMove( void )
 			break;
 
 		case MOVETYPE_WALK:
-			if ( marine->GetCurrentMeleeAttack() && marine->m_iMeleeAllowMovement == MELEE_MOVEMENT_FULL)
+			if ( marine->GetCurrentMeleeAttack() && marine->m_iMeleeAllowMovement == MELEE_MOVEMENT_ANIMATION_ONLY )
 			{
 				FullMeleeMove();
 			}

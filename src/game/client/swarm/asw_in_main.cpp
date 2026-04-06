@@ -58,6 +58,96 @@ ConVar asw_mouse_order_dist("asw_mouse_order_dist", "100", 0, "Minimum distance 
 void GetVGUICursorPos( int& x, int& y );
 void SetVGUICursorPos( int x, int y );
 
+void SelectMarineDown(int iMarine)
+{	
+	// number ordering disabled for now
+	/*
+	if (s_fMarineDownTime == 0)
+	{
+	s_fMarineDownTime = gpGlobals->curtime;
+	s_iMarineOrdering = iMarine;
+	GetVGUICursorPos(s_iMarineOrderingStartX, s_iMarineOrderingStartY);
+	int x, y;
+	engine->GetScreenSize( x, y );
+	x = x >> 1;
+	y = y >> 1;
+
+	float mx, my;
+	mx = s_iMarineOrderingStartX - x;
+	my = s_iMarineOrderingStartY - y;
+	float mx_ratio =((float) mx) / ((float) x);
+	float my_ratio =((float) my) / ((float) y);			
+	HUDTraceToWorld(-mx_ratio * 0.5f, -my_ratio * 0.5f, s_vecMarineOrderPos);	// store the spot we'll send a marine to
+	}
+	*/
+
+	// if we change marines, clear any marine ordering we're about to give
+	if (s_hOrderTarget.Get())
+	{
+		s_hOrderTarget = NULL;
+		ASWInput()->ASW_SetOrderingMarine(0);
+	}
+	// send marine switch command
+	char buffer[64];
+	Q_snprintf(buffer, sizeof(buffer), "cl_switchm %d", iMarine+1);
+	engine->ServerCmd(buffer);
+}
+
+void SelectMarineUp(int iMarine)
+{	
+	// number ordering disabled for now
+	/*
+	// check for
+	if (s_iMarineOrdering == iMarine)
+	{
+	// find how much the mouse has moved
+	int cx, cy;
+	GetVGUICursorPos(cx, cy);
+	int dx = cx - s_iMarineOrderingStartX;
+	int dy = cy - s_iMarineOrderingStartY;
+	float dist_sqr = dx * dx + dy * dy;
+	s_iMarineOrdering = 0;
+	s_fMarineDownTime = 0;
+	float fScreenScale = ScreenWidth() / 1024.0f;
+	int iMinPixels = asw_mouse_order_dist.GetFloat() * fScreenScale;
+	if (dist_sqr > iMinPixels)
+	{
+	// order that marine to face this way
+	Vector vecOrderDir(dx, dy, 0);
+	float fYaw = -UTIL_VecToYaw(vecOrderDir);
+	char buffer[64];
+
+	Q_snprintf(buffer, sizeof(buffer), "cl_marineface %d %f %d %d %d", iMarine, fYaw,
+	int(s_vecMarineOrderPos.x), int(s_vecMarineOrderPos.y), int(s_vecMarineOrderPos.z));
+	//Msg("Sending command %s\n", buffer);
+	engine->ClientCmd(buffer);
+	return;
+	}
+	}
+	// otherwise send the normal marine switch
+	char buffer[64];
+	Q_snprintf(buffer, sizeof(buffer), "cl_switchm %d", iMarine+1);
+	//Msg("Sending command %s\n", buffer);
+	engine->ClientCmd(buffer);
+	*/
+}
+
+void IN_SelectMarine1Down(void) { SelectMarineDown(0); }
+void IN_SelectMarine1Up(void) { SelectMarineUp(0); }
+void IN_SelectMarine2Down(void) { SelectMarineDown(1); }
+void IN_SelectMarine2Up(void) { SelectMarineUp(1); }
+void IN_SelectMarine3Down(void) { SelectMarineDown(2); }
+void IN_SelectMarine3Up(void) { SelectMarineUp(2); }
+void IN_SelectMarine4Down(void) { SelectMarineDown(3); }
+void IN_SelectMarine4Up(void) { SelectMarineUp(3); }
+void IN_SelectMarine5Down(void) { SelectMarineDown(4); }
+void IN_SelectMarine5Up(void) { SelectMarineUp(4); }
+void IN_SelectMarine6Down(void) { SelectMarineDown(5); }
+void IN_SelectMarine6Up(void) { SelectMarineUp(5); }
+void IN_SelectMarine7Down(void) { SelectMarineDown(6); }
+void IN_SelectMarine7Up(void) { SelectMarineUp(6); }
+void IN_SelectMarine8Down(void) { SelectMarineDown(7); }
+void IN_SelectMarine8Up(void) { SelectMarineUp(7); }
 // ordering marines to hold a specific position/direction
 void IN_HoldOrderDown()
 {
@@ -583,6 +673,22 @@ int CASWInput::GetButtonBits( bool bResetState )
 	return bits;
 }
 
+static ConCommand startselectmarine1("+selectmarine1", IN_SelectMarine1Down);
+static ConCommand endselectmarine1("-selectmarine1", IN_SelectMarine1Up);
+static ConCommand startselectmarine2("+selectmarine2", IN_SelectMarine2Down);
+static ConCommand endselectmarine2("-selectmarine2", IN_SelectMarine2Up);
+static ConCommand startselectmarine3("+selectmarine3", IN_SelectMarine3Down);
+static ConCommand endselectmarine3("-selectmarine3", IN_SelectMarine3Up);
+static ConCommand startselectmarine4("+selectmarine4", IN_SelectMarine4Down);
+static ConCommand endselectmarine4("-selectmarine4", IN_SelectMarine4Up);
+static ConCommand startselectmarine5("+selectmarine5", IN_SelectMarine5Down);
+static ConCommand endselectmarine5("-selectmarine5", IN_SelectMarine5Up);
+static ConCommand startselectmarine6("+selectmarine6", IN_SelectMarine6Down);
+static ConCommand endselectmarine6("-selectmarine6", IN_SelectMarine6Up);
+static ConCommand startselectmarine7("+selectmarine7", IN_SelectMarine7Down);
+static ConCommand endselectmarine7("-selectmarine7", IN_SelectMarine7Up);
+static ConCommand startselectmarine8("+selectmarine8", IN_SelectMarine8Down);
+static ConCommand endselectmarine8("-selectmarine8", IN_SelectMarine8Up);
 static ConCommand startholdorder("+holdorder", IN_HoldOrderDown);
 static ConCommand endholdorder("-holdorder", IN_HoldOrderUp);
 

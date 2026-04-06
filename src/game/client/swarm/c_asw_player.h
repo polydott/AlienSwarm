@@ -137,7 +137,6 @@ public:
 	QAngle	m_angEyeAngles;
 	CInterpolatedVar< QAngle >	m_iv_angEyeAngles;
 	CNetworkHandle( C_ASW_Marine, m_hMarine );    // our currently controlled marine
-	CNetworkHandle( C_ASW_Marine, m_hNPCMarine );    // our other marines
 	CNetworkHandle( C_ASW_Marine, m_hSpectatingMarine );    // the marine we're spectating when dead
 	const Vector& GetCrosshairTracePos() { return m_vecCrosshairTracePos; }
 	void SetCrosshairTracePos( const Vector &vecPos ) { m_vecCrosshairTracePos = vecPos; }
@@ -146,7 +145,6 @@ public:
 	bool IsSniperScopeActive();
 
 	C_ASW_Marine* GetMarine();
-	C_ASW_Marine* GetNPCMarine();
 	C_ASW_Marine* GetMarine() const;
 	C_ASW_Marine* GetSpectatingMarine();
 	bool HasLiveMarines();

@@ -46,7 +46,14 @@
 
 //extern ConVar cl_predict;
 static ConVar	cl_asw_smooth		( "cl_asw_smooth", "1", 0, "Smooth marine's render origin after prediction errors" );
-static ConVar	cl_asw_smoothtime	( "cl_asw_smoothtime", "0.1", 0, "Smooth marine's render origin after prediction error over this many seconds",true, 0.01,true, 2.0); // min/max is 0.01/2.0
+static ConVar	cl_asw_smoothtime	( 
+	"cl_asw_smoothtime", 
+	"0.1", 
+	0, 
+	"Smooth marine's render origin after prediction error over this many seconds",
+	true, 0.01,	// min/max is 0.01/2.0
+	true, 2.0
+	 );
 ConVar asw_flashlight_dlight_radius("asw_flashlight_dlight_radius", "100", FCVAR_CHEAT, "Radius of the light around the marine.");
 ConVar asw_flashlight_dlight_offsetx("asw_flashlight_dlight_offsetx", "30", FCVAR_CHEAT, "Offset of the flashlight dlight");
 ConVar asw_flashlight_dlight_offsety("asw_flashlight_dlight_offsety", "0", FCVAR_CHEAT, "Offset of the flashlight dlight");
@@ -780,20 +787,20 @@ void C_ASW_Marine::ClientThink()
 		m_fInfestedTime -= deltatime;
 	}
 	
-	CASW_Marine* pMarine = GetLocalMarine();
+	CASW_Player* pPlayer = ToASW_Player(C_BasePlayer::GetLocalPlayer());
 
 	if (asw_hide_local_marine.GetBool())
 	{
-		if (pMarine)
+		if (pPlayer->GetMarine())
 		{
-			pMarine->SetRenderMode(kRenderNone);
+			pPlayer->GetMarine()->SetRenderMode(kRenderNone);
 		}
 	}
 	else
 	{
-		if (pMarine)
+		if (pPlayer->GetMarine())
 		{
-			pMarine->SetRenderMode(kRenderNormal);
+			pPlayer->GetMarine()->SetRenderMode(kRenderNormal);
 		}
 	}
 
