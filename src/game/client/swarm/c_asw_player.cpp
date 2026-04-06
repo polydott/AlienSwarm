@@ -965,12 +965,10 @@ void C_ASW_Player::ClientThink()
 	// check for stims	
 	if ( ASWGameRules() )
 	{
-		bool bDeathCam = ( gpGlobals->curtime >= ASWGameRules()->m_fMarineDeathTime && gpGlobals->curtime <= ASWGameRules()->m_fMarineDeathTime + asw_time_scale_delay.GetFloat() + asw_marine_death_cam_time.GetFloat() + 1.5f );
-
 		// This isn't a death cam slowdown
 		float f = GameTimescale()->GetCurrentTimescale();
 
-		static float lastTimescale = -1;
+		static float lastTimescale = 1;
 		if ( f != lastTimescale )
 		{
 			if ( !m_bStartedStimMusic && f < lastTimescale && ASWGameRules()->GetGameState() == ASW_GS_INGAME )
@@ -981,11 +979,7 @@ void C_ASW_Player::ClientThink()
 					EmitSound("noslow.SingleBreath");
 				}
 
-				if ( !bDeathCam )
-				{
-					StartStimMusic();
-				}
-
+				StartStimMusic();
 				m_bPlayingSingleBreathSound = true;
 			}
 			else
@@ -1004,67 +998,10 @@ void C_ASW_Player::ClientThink()
 			}			
 			
 			lastTimescale = f;
-			engine->SetPitchScale(f);
-			if ( f > asw_stim_cam_time.GetFloat() )
-			{
-				if (GetStimCam())
-					GetStimCam()->SetActive( false );
-			}
 		}
 		if (f < 1.0f && !ASWGameRules()->ShouldPlayStimMusic())	// check for stopping stim music if level music kicks in while we're rocking out to stims
 		{
 			StopStimMusic(true);
-		}
-		// we're in slomo, so make sure our stimcam is on
-		if (f < asw_stim_cam_time.GetFloat())
-		{			
-			// enable the stylin' cam
-			if (GetMarine())
-			{
-				// check if there's a mapper designed camera turned on
-				C_PointCamera *pCameraEnt = GetPointCameraList();
-				bool bMapperCam = false;
-				for ( int cameraNum = 0; pCameraEnt != NULL; pCameraEnt = pCameraEnt->m_pNext )
-				{
-					if ( pCameraEnt != GetStimCam() && pCameraEnt->IsActive() && !pCameraEnt->IsDormant())
-					{							
-						bMapperCam = true;
-						break;
-					}
-
-					++cameraNum;
-				}
-
-				if (!bMapperCam)
-				{
-					if (asw_spinning_stim_cam.GetBool())
-					{
-						if (!GetStimCam())
-							CreateStimCamera();	
-						if (GetStimCam())
-						{																				
-							// no mapper cam, turn on our stim one
-							GetStimCam()->SetActive( true );
-							Vector offset = Vector(asw_stim_cam_x.GetFloat(), asw_stim_cam_y.GetFloat(), asw_stim_cam_z.GetFloat());
-							Vector offset_r;
-							VectorRotate(offset, QAngle(0, GetMarine()->GetAbsAngles()[YAW] + m_fStimYaw, 0), offset_r);
-							if (GetMarine())
-								GetStimCam()->SetAbsOrigin(GetMarine()->GetAbsOrigin() + offset_r);
-							// rotate it around us
-							GetStimCam()->SetAbsAngles(QAngle(asw_stim_cam_pitch.GetFloat(), m_fStimYaw + GetMarine()->GetAbsAngles()[YAW]+asw_stim_cam_yaw.GetFloat(), asw_stim_cam_roll.GetFloat()));
-							m_fStimYaw += gpGlobals->frametime * asw_stim_cam_rotate_speed.GetFloat();
-							//Msg("Showing marine's cam\n");
-						}
-					}
-				}
-				else
-				{
-					// make sure the stim cam is off, so the mapper placed cam can work
-					if (GetStimCam())
-						GetStimCam()->SetActive( false );
-					//Msg("Showing mapper's cam\n");
-				}				
-			}		
 		}
 
 		// check for launching the briefing

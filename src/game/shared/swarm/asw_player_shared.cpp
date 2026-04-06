@@ -91,7 +91,7 @@ ConVar asw_DebugAutoAim("asw_DebugAutoAim", "0", FCVAR_REPLICATED | FCVAR_CHEAT)
 ConVar asw_marine_nearby_angle("asw_marine_nearby_angle", "-75", FCVAR_REPLICATED | FCVAR_CHEAT);
 ConVar asw_rts_controls("asw_rts_controls", "0", FCVAR_REPLICATED | FCVAR_CHEAT);
 ConVar asw_controls("asw_controls", "1", FCVAR_REPLICATED | FCVAR_CHEAT, "Disable to get normal FPS controls (affects all players on the server)");
-ConVar asw_hl2_camera("asw_hl2_camera", "0", FCVAR_REPLICATED | FCVAR_DONTRECORD | FCVAR_CHEAT);
+ConVar asw_hl2_camera("asw_hl2_camera", "1", FCVAR_REPLICATED | FCVAR_DONTRECORD | FCVAR_CHEAT);
 
 #ifdef CLIENT_DLL		
 	extern ConVar asw_vehicle_cam_height;
@@ -388,8 +388,6 @@ Vector CASW_Player::EyePosition( )
 			return BaseClass::EyePosition();
 		}
 
-		bool bIsThirdPerson = ( ::input->CAM_IsThirdPerson() != 0 );
-
 		Vector org = vec3_origin;
 		QAngle ang;
 		if ( pMarine && pMarine->IsInVehicle() )
@@ -411,10 +409,6 @@ Vector CASW_Player::EyePosition( )
 				ang[YAW] = ASWInput()->ASW_GetCameraYaw();
 				ang[ROLL] = 0;
 				AngleVectors(ang, &org);
-				if ( bIsThirdPerson )
-				{
-					org *= -::ASWInput()->ASW_GetCameraDist();
-				}
 				org += pMarine->GetRemoteTurret()->GetRenderOrigin();
 			}
 			else
@@ -424,100 +418,15 @@ Vector CASW_Player::EyePosition( )
 		}
 		else
 		{
-			float fDeathCamInterp = ( ASWGameRules() ? ASWGameRules()->GetMarineDeathCamInterp() : 0.0f );
-			if ( fDeathCamInterp <= 0.0f )
-			{
-				// Not doing the death cam!
-				Vector vCamOffset;
-				ang[PITCH] = ASWInput()->ASW_GetCameraPitch();
-				ang[YAW] = ASWInput()->ASW_GetCameraYaw();
-				ang[ROLL] = 0;
+			// Not doing the death cam!
+			Vector vCamOffset;
+			ang[PITCH] = ASWInput()->ASW_GetCameraPitch();
+			ang[YAW] = ASWInput()->ASW_GetCameraYaw();
+			ang[ROLL] = 0;
 
-				AngleVectors( ang, &vCamOffset );
-				if ( bIsThirdPerson )
-				{
-					vCamOffset *= -ASWInput()->ASW_GetCameraDist();
-				}
+			AngleVectors( ang, &vCamOffset );
 
-				org = m_vecLastMarineOrigin + vCamOffset;
-			}
-			else
-			{
-				// Do the death cam!
-				Vector vCamOffset;
-				float fOffsetScale = 1.0f;
-				Vector vDeathPos = ASWGameRules()->m_vMarineDeathPos;
-				if ( ASWGameRules()->m_hMarineDeathRagdoll.Get() )
-				{
-					vDeathPos = ASWGameRules()->m_hMarineDeathRagdoll->WorldSpaceCenter();
-				}
-				vDeathPos.z += 50.0f;
-
-				// Prevent final death cam pos from clipping through walls
-				const float flMaxDeathCamInterp = 1.0f;
-				float fBaseYaw = ASWInput()->ASW_GetCameraYaw( &flMaxDeathCamInterp );
-				ang[PITCH] = ASWInput()->ASW_GetCameraPitch( &flMaxDeathCamInterp );
-				ang[ROLL] = 0;
-
-				float fMaxDeathCamDist = -ASWInput()->ASW_GetCameraDist( &flMaxDeathCamInterp );
-
-				trace_t tr;
-				tr.fraction = -1.0f;
-				float fBestYawOffset = 0.0f;
-
-				// Forward look at a bunch of angles to see if we can find a better one
-				const int nNumAngleTests = 12;
-				for ( int nAngleTest = 0; nAngleTest < nNumAngleTests; ++nAngleTest )
-				{
-					float fYawAngleOffset = nAngleTest * ( 360.0f / nNumAngleTests );
-					ang[ YAW ] = fBaseYaw + fYawAngleOffset;
-
-					AngleVectors( ang, &vCamOffset );
-					if ( bIsThirdPerson )
-					{
-						vCamOffset *= fMaxDeathCamDist;
-					}
-
-					vCamOffset.z += asw_cam_marine_shift_z_death.GetFloat();
-
-					// See if the new angle is clipping
-					trace_t trTemp;
-					UTIL_TraceLine( vDeathPos, vDeathPos + vCamOffset, MASK_OPAQUE, NULL, COLLISION_GROUP_DEBRIS, &trTemp );
-
-					if ( !trTemp.DidHit() )
-					{
-						// Not cliping at all
-						tr = trTemp;
-						fBestYawOffset = fYawAngleOffset;
-						break;
-					}
-					else if ( tr.fraction + 0.15f < trTemp.fraction )
-					{
-						// It's quite a bit better than what we're currently using
-						tr = trTemp;
-						fBestYawOffset = fYawAngleOffset;
-					}
-				}
-
-				ASWGameRules()->m_fDeathCamYawAngleOffset += fBestYawOffset;
-				fOffsetScale = tr.fraction;
-
-				// Blend the death cam position with the regular game view
-				ang[PITCH] = ASWInput()->ASW_GetCameraPitch( &fDeathCamInterp );
-				ang[YAW] = ASWInput()->ASW_GetCameraYaw( &fDeathCamInterp );
-				ang[ROLL] = 0;
-
-				AngleVectors( ang, &vCamOffset );
-				if ( bIsThirdPerson )
-				{
-					vCamOffset *= -ASWInput()->ASW_GetCameraDist( &fDeathCamInterp );
-				}
-
-				vCamOffset.z += fDeathCamInterp * asw_cam_marine_shift_z_death.GetFloat();
-
-				org = ( 1.0f - fDeathCamInterp ) * m_vecLastMarineOrigin + fDeathCamInterp * vDeathPos;
-				org += vCamOffset * fOffsetScale;
-			}
+			org = m_vecLastMarineOrigin + vCamOffset;
 		}
 
 		return org;

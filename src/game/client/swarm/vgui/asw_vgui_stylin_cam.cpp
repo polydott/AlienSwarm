@@ -143,8 +143,7 @@ bool CASW_VGUI_Stylin_Cam::ShouldShowStylinCam()
 		bool bMapperCam = false;
 		for ( int cameraNum = 0; pCameraEnt != NULL; pCameraEnt = pCameraEnt->m_pNext )
 		{
-			if ( pCameraEnt != pLocal->GetStimCam() && pCameraEnt->IsActive() && !pCameraEnt->IsDormant()
-				&& !(ASW_IsSecurityCam(pCameraEnt) && asw_stim_cam_time.GetFloat()!=2.0f))
+			if ( pCameraEnt->IsActive() && !pCameraEnt->IsDormant() && !(ASW_IsSecurityCam(pCameraEnt) && asw_stim_cam_time.GetFloat()!=2.0f))
 			{							
 				bMapperCam = true;
 				break;

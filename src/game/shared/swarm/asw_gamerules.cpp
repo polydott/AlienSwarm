@@ -2431,49 +2431,6 @@ void CAlienSwarm::StopStim()
 
 void CAlienSwarm::ThinkUpdateTimescale() RESTRICT 
 {
-	if ( GetGameState() != ASW_GS_INGAME || m_bMissionFailed )
-	{
-		// No slowdown when we're not in game
-		GameTimescale()->SetDesiredTimescale( 1.0f );
-		return;
-	}
-
-	if ( asw_marine_death_cam.GetBool() )
-	{
-		if ( gpGlobals->curtime >= m_fMarineDeathTime && gpGlobals->curtime <= m_fMarineDeathTime + asw_time_scale_delay.GetFloat() + asw_marine_death_cam_time.GetFloat() )
-		{
-			// Wait for the delay before invuln starts
-			if ( gpGlobals->curtime > m_fMarineDeathTime + asw_time_scale_delay.GetFloat() )
-			{
-				MarineInvuln( true );
-			}
-
-			GameTimescale()->SetDesiredTimescaleAtTime( asw_marine_death_cam_time_scale.GetFloat(), asw_marine_death_cam_time_interp.GetFloat(), CGameTimescale::INTERPOLATOR_EASE_IN_OUT, m_fMarineDeathTime + asw_time_scale_delay.GetFloat() );
-			return;
-		}
-		else if ( gpGlobals->curtime > m_fMarineDeathTime + asw_time_scale_delay.GetFloat() + asw_marine_death_cam_time.GetFloat() + 1.5f )
-		{
-			// Wait for a longer delay before invuln stops
-			MarineInvuln( false );
-
-			m_nMarineForDeathCam = -1;
-			m_fMarineDeathTime = 0.0f;
-		}
-	}
-
-	if ( gpGlobals->curtime >= ( m_fObjectiveSlowDownEndTime - asw_objective_slowdown_time.GetFloat() ) && gpGlobals->curtime < m_fObjectiveSlowDownEndTime )
-	{
-		GameTimescale()->SetDesiredTimescale( asw_objective_update_time_scale.GetFloat(), 1.5f, CGameTimescale::INTERPOLATOR_EASE_IN_OUT, asw_time_scale_delay.GetFloat() );
-		return;
-	}
-
-	if ( m_flStimEndTime > gpGlobals->curtime )
-	{
-		GameTimescale()->SetDesiredTimescale( asw_stim_time_scale.GetFloat(), 1.5f, CGameTimescale::INTERPOLATOR_EASE_IN_OUT, asw_time_scale_delay.GetFloat() );
-		return;
-	}
-
-	GameTimescale()->SetDesiredTimescale( 1.0f, 1.5f, CGameTimescale::INTERPOLATOR_EASE_IN_OUT, asw_time_scale_delay.GetFloat() );
 }
 
 void CAlienSwarm::PlayerThink( CBasePlayer *pPlayer )
