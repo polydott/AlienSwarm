@@ -88,6 +88,13 @@ struct LightmappedGeneric_DX9_Vars_t
 	int m_nOutlineEnd0;
 	int m_nOutlineEnd1;
 
+	int m_nEnvmapParallax; // BenLubar: I can't get it to keep the four values undefined, so I'm adding a flag.
+	// from https://developer.valvesoftware.com/wiki/Parallax_Corrected_Cubemaps
+	int m_nEnvmapParallaxObb1;
+	int m_nEnvmapParallaxObb2;
+	int m_nEnvmapParallaxObb3;
+	int m_nEnvmapOrigin;
+
 	int m_nParallaxMap;
 	int m_nHeightScale;
 

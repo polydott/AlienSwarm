@@ -8,7 +8,7 @@
 #include "BaseVSShader.h"
 #include "shaderlib/commandbuilder.h"
 #include "multiblend_dx9_helper.h"
-#include "..\shaderapidx9\locald3dtypes.h"												   
+#include "..\shaderapidx9\locald3dtypes.h"
 #include "convar.h"
 #include "cpp_shader_constant_register_map.h"
 #include "multiblend_vs20.inc"

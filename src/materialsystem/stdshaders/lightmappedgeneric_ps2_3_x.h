@@ -120,6 +120,12 @@ const float4 g_ParallaxMappingControl : register( c20 );
 
 const float3 g_TintValuesWithoutLightmapScale	: register( c21 );
 
+// Adapated from https://developer.valvesoftware.com/wiki/Parallax_Corrected_Cubemaps
+#if (PARALLAXCORRECT)
+const float3 g_CubemapPos : register( c22 );
+const float4x4 g_ObbMatrix : register( c23 ); // Through c26
+#endif
+
 sampler BaseTextureSampler		: register( s0 );
 sampler LightmapSampler			: register( s1 );
 sampler EnvmapSampler			: register( s2 );
@@ -206,18 +212,103 @@ float4 main( PS_INPUT i ) : COLOR
 
 	float3 coords = baseTexCoords;
 
-	if ( PARALLAX_MAPPING )
-	{		
-		float3 tangentspace_eye_vector = mul( worldVertToEyeVector, transpose( tangenttranspose ) );
-		
-		float flParallaxLimit = length( tangentspace_eye_vector.xy ) / tangentspace_eye_vector.z;
-		float2 vOffset = normalize( -tangentspace_eye_vector.xy );
-		float CurHeight = 1.0;
-		float NewHeight = tex2D( BumpmapSampler, coords.xy ).a;
-		float dist = min( 0.06, HEIGHT_SCALE * flParallaxLimit * ( CurHeight - NewHeight ) );
-		coords.x += dist * vOffset.x;
-		coords.y += dist * vOffset.y;
+#if PARALLAX_MAPPING
+	{
+		// code converted from the ParallaxTest shader:
+		int nMinSamples = g_ParallaxMappingControl.z;
+		int nMaxSamples = g_ParallaxMappingControl.w;
+
+		//  Normalize the interpolated vectors:
+		float3 vViewTSFull = mul( worldVertToEyeVector, transpose( tangenttranspose ) );
+		float2 vViewTS = normalize( vViewTSFull.xy );
+		float3 vViewWS = normalize( worldVertToEyeVector );
+		float3 vNormalWS = normalize( i.tangentSpaceTranspose[2] );
+
+		// The length of this vector determines the furthest amount of displacement:
+		float fLength = length( vViewTSFull );
+		float fParallaxLength = sqrt( fLength * fLength - vViewTSFull.z * vViewTSFull.z ) / vViewTSFull.z;
+
+		// Compute the actual reverse parallax displacement vector:
+		float2 vParallaxOffsetTS = vViewTS * fParallaxLength * HEIGHT_SCALE;
+
+		// Compute all the derivatives:
+		float2 dx = ddx( baseTexCoords );
+		float2 dy = ddy( baseTexCoords );
+
+		//===============================================//
+		// Parallax occlusion mapping offset computation //
+		//===============================================//
+
+		// Utilize dynamic flow control to change the number of samples per ray
+		// depending on the viewing angle for the surface. Oblique angles require
+		// smaller step sizes to achieve more accurate precision for computing displacement.
+		// We express the sampling rate as a linear function of the angle between
+		// the geometric normal and the view direction ray:
+		int nNumSteps = ( int )lerp( nMaxSamples, nMinSamples, dot( vViewWS, vNormalWS ) );
+
+		// Intersect the view ray with the height field profile along the direction of
+		// the parallax offset ray (computed in the vertex shader. Note that the code is
+		// designed specifically to take advantage of the dynamic flow control constructs
+		// in HLSL and is very sensitive to specific syntax. When converting to other examples,
+		// if still want to use dynamic flow control in the resulting assembly shader,
+		// care must be applied.
+		//
+		// In the below steps we approximate the height field profile as piecewise linear
+		// curve. We find the pair of endpoints between which the intersection between the
+		// height field profile and the view ray is found and then compute line segment
+		// intersection for the view ray and the line segment formed by the two endpoints.
+		// This intersection is the displacement offset from the original texture coordinate.
+		// See the above paper for more details about the process and derivation.
+		//
+		float fCurrHeight = 0.0;
+		float fStepSize = 1.0 / ( float )nNumSteps;
+		float fPrevHeight = 1.0;
+		float fNextHeight = 0.0;
+
+		int    nStepIndex = 0;
+
+		float2 vTexOffsetPerStep = fStepSize * vParallaxOffsetTS;
+		float2 vTexCurrentOffset = baseTexCoords;
+		float  fCurrentBound = 1.0;
+
+		float2 pt1 = 0;
+		float2 pt2 = 0;
+
+		float2 texOffset2 = 0;
+
+		while ( nStepIndex < nNumSteps )
+		{
+			vTexCurrentOffset -= vTexOffsetPerStep;
+
+			// Sample height map which in this case is stored in the alpha channel of the normal map:
+			fCurrHeight = tex2Dgrad( BumpmapSampler, vTexCurrentOffset, dx, dy ).a;
+
+			fCurrentBound -= fStepSize;
+
+			if ( fCurrHeight > fCurrentBound )
+			{
+				pt1 = float2( fCurrentBound, fCurrHeight );
+				pt2 = float2( fCurrentBound + fStepSize, fPrevHeight );
+
+				texOffset2 = vTexCurrentOffset - vTexOffsetPerStep;
+
+				nStepIndex = nNumSteps + 1;
+			}
+			else
+			{
+				nStepIndex++;
+				fPrevHeight = fCurrHeight;
+			}
+		}   // End of while ( nStepIndex < nNumSteps )
+
+		float fDelta2 = pt2.x - pt2.y;
+		float fDelta1 = pt1.x - pt1.y;
+		float fParallaxAmount = ( pt1.x * fDelta2 - pt2.x * fDelta1 ) / ( fDelta2 - fDelta1 );
+
+		// The computed texture offset for the displaced point on the pseudo-extruded surface:
+		coords.xy -= vParallaxOffsetTS * ( 1 - fParallaxAmount );
 	}
+#endif
 
 	float2 detailTexCoord = 0.0f;
 	float2 bumpmapTexCoord = 0.0f;
@@ -569,7 +660,27 @@ float4 main( PS_INPUT i ) : COLOR
 		float fresnel = 1.0 - dot( worldSpaceNormal, eyeVect );
 		fresnel = pow( fresnel, 5.0 );
 		fresnel = fresnel * g_OneMinusFresnelReflection + g_FresnelReflection;
-		
+
+		// From https://developer.valvesoftware.com/wiki/Parallax_Corrected_Cubemaps
+		// Parallax correction (2_0b and beyond)
+		// Adapted from http://seblagarde.wordpress.com/2012/09/29/image-based-lighting-approaches-and-parallax-corrected-cubemap/
+#if !( defined( SHADER_MODEL_PS_1_1 ) || defined( SHADER_MODEL_PS_1_4 ) || defined( SHADER_MODEL_PS_2_0 ) )
+#if ( PARALLAXCORRECT )
+		float3 worldPos = i.worldPos_projPosZ.xyz;
+		float3 positionLS = mul( float4( worldPos, 1 ), g_ObbMatrix );
+		float3 rayLS = mul( reflectVect, (float3x3)g_ObbMatrix );
+
+		float3 firstPlaneIntersect = ( float3( 1.0f, 1.0f, 1.0f ) - positionLS ) / rayLS;
+		float3 secondPlaneIntersect = ( -positionLS ) / rayLS;
+		float3 furthestPlane = max( firstPlaneIntersect, secondPlaneIntersect );
+		float distance = min( furthestPlane.x, min( furthestPlane.y, furthestPlane.z ) );
+
+		// Use distance in WS directly to recover intersection
+		float3 intersectPositionWS = worldPos + reflectVect * distance;
+		reflectVect = intersectPositionWS - g_CubemapPos;
+#endif
+#endif
+
 		specularLighting = ENV_MAP_SCALE * texCUBE( EnvmapSampler, reflectVect );
 #if (CUBEMAP == 2) //cubemap darkened by lightmap mode
 		specularLighting = lerp( specularLighting, specularLighting * saturate( diffuseLighting ), g_DiffuseCubemapScale ); //reduce the cubemap contribution when the pixel is in shadow

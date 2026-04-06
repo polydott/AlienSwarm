@@ -298,20 +298,20 @@ BEGIN_VS_SHADER( Water_DX90,
 			}
 			pShaderShadow->VertexShaderVertexFormat( fmt, numTexCoords, 0, 0 );
 			
-			DECLARE_STATIC_VERTEX_SHADER( water_vs20 );
+			DECLARE_STATIC_VERTEX_SHADER( Water_vs20 );
 			SET_STATIC_VERTEX_SHADER_COMBO( MULTITEXTURE, bHasMultiTexture );
 			SET_STATIC_VERTEX_SHADER_COMBO( BASETEXTURE, bHasBaseTexture );
 			SET_STATIC_VERTEX_SHADER_COMBO( FLASHLIGHT, hasFlashlight );
 			SET_STATIC_VERTEX_SHADER_COMBO( LIGHTMAPWATERFOG, bLightmapWaterFog );
 			SET_STATIC_VERTEX_SHADER_COMBO( FLOWMAP, bHasFlowmap );
-			SET_STATIC_VERTEX_SHADER( water_vs20 );
+			SET_STATIC_VERTEX_SHADER( Water_vs20 );
 
 			// "REFLECT" "0..1"
 			// "REFRACT" "0..1"
 			
 			if ( g_pHardwareConfig->SupportsPixelShaders_2_b() )
 			{
-				DECLARE_STATIC_PIXEL_SHADER( water_ps20b );
+				DECLARE_STATIC_PIXEL_SHADER( Water_ps20b );
 				SET_STATIC_PIXEL_SHADER_COMBO( REFLECT,  bReflection );
 				SET_STATIC_PIXEL_SHADER_COMBO( REFRACT,  bRefraction );
 				SET_STATIC_PIXEL_SHADER_COMBO( ABOVEWATER,  params[ABOVEWATER]->GetIntValue() );
@@ -322,11 +322,11 @@ BEGIN_VS_SHADER( Water_DX90,
 				SET_STATIC_PIXEL_SHADER_COMBO( FLASHLIGHT, hasFlashlight );
 				SET_STATIC_PIXEL_SHADER_COMBO( LIGHTMAPWATERFOG, bLightmapWaterFog );
 				SET_STATIC_PIXEL_SHADER_COMBO( FORCEFRESNEL, bForceFresnel );
-				SET_STATIC_PIXEL_SHADER( water_ps20b );
+				SET_STATIC_PIXEL_SHADER( Water_ps20b );
 			}
 			else
 			{
-				DECLARE_STATIC_PIXEL_SHADER( water_ps20 );
+				DECLARE_STATIC_PIXEL_SHADER( Water_ps20 );
 				SET_STATIC_PIXEL_SHADER_COMBO( REFLECT,  bReflection );
 				SET_STATIC_PIXEL_SHADER_COMBO( REFRACT,  bRefraction );
 				SET_STATIC_PIXEL_SHADER_COMBO( ABOVEWATER,  params[ABOVEWATER]->GetIntValue() );
@@ -335,7 +335,7 @@ BEGIN_VS_SHADER( Water_DX90,
 //				SET_STATIC_PIXEL_SHADER_COMBO( FLOWMAP, bHasFlowmap );
 				SET_STATIC_PIXEL_SHADER_COMBO( FLOW_DEBUG, clamp( params[ FLOW_DEBUG ]->GetIntValue(), 0, 2 ) );
 				SET_STATIC_PIXEL_SHADER_COMBO( FORCEFRESNEL, bForceFresnel );
-				SET_STATIC_PIXEL_SHADER( water_ps20 );
+				SET_STATIC_PIXEL_SHADER( Water_ps20 );
 			}
 
 			FogToFogColor();
@@ -516,8 +516,8 @@ BEGIN_VS_SHADER( Water_DX90,
 				SetPixelShaderConstant( 9, FLOWMAPSCROLLRATE );
 			}
 
-			DECLARE_DYNAMIC_VERTEX_SHADER( water_vs20 );
-			SET_DYNAMIC_VERTEX_SHADER( water_vs20 );
+			DECLARE_DYNAMIC_VERTEX_SHADER( Water_vs20 );
+			SET_DYNAMIC_VERTEX_SHADER( Water_vs20 );
 			
 			CCommandBufferBuilder< CFixedCommandStorageBuffer< 1000 > > DynamicCmdsOut;
 
@@ -564,14 +564,14 @@ BEGIN_VS_SHADER( Water_DX90,
 
 			if ( g_pHardwareConfig->SupportsPixelShaders_2_b() )
 			{
-				DECLARE_DYNAMIC_PIXEL_SHADER( water_ps20b );
+				DECLARE_DYNAMIC_PIXEL_SHADER( Water_ps20b );
 				SET_DYNAMIC_PIXEL_SHADER_COMBO( FLASHLIGHTSHADOWS, bFlashlightShadows );
-				SET_DYNAMIC_PIXEL_SHADER( water_ps20b );
+				SET_DYNAMIC_PIXEL_SHADER( Water_ps20b );
 			}
 			else
 			{
-				DECLARE_DYNAMIC_PIXEL_SHADER( water_ps20 );
-				SET_DYNAMIC_PIXEL_SHADER( water_ps20 );
+				DECLARE_DYNAMIC_PIXEL_SHADER( Water_ps20 );
+				SET_DYNAMIC_PIXEL_SHADER( Water_ps20 );
 			}
 
 			DynamicCmdsOut.End();
@@ -620,13 +620,13 @@ BEGIN_VS_SHADER( Water_DX90,
 			int fmt = VERTEX_POSITION | VERTEX_NORMAL | VERTEX_TANGENT_S | VERTEX_TANGENT_T;
 			pShaderShadow->VertexShaderVertexFormat( fmt, 1, 0, 0 );
 
-			DECLARE_STATIC_VERTEX_SHADER( watercheap_vs20 );
+			DECLARE_STATIC_VERTEX_SHADER( WaterCheap_vs20 );
 			SET_STATIC_VERTEX_SHADER_COMBO( BLEND,  bBlend && bRefraction );
-			SET_STATIC_VERTEX_SHADER( watercheap_vs20 );
+			SET_STATIC_VERTEX_SHADER( WaterCheap_vs20 );
 
 			if( g_pHardwareConfig->SupportsPixelShaders_2_b() )
 			{
-				DECLARE_STATIC_PIXEL_SHADER( watercheap_ps20b );
+				DECLARE_STATIC_PIXEL_SHADER( WaterCheap_ps20b );
 				SET_STATIC_PIXEL_SHADER_COMBO( FRESNEL,  params[NOFRESNEL]->GetIntValue() == 0 );
 				SET_STATIC_PIXEL_SHADER_COMBO( BLEND,  bBlend );
 				SET_STATIC_PIXEL_SHADER_COMBO( REFRACTALPHA,  bRefraction );
@@ -636,11 +636,11 @@ BEGIN_VS_SHADER( Water_DX90,
 				SET_STATIC_PIXEL_SHADER_COMBO( MULTITEXTURE,fabs(Scroll1.x) > 0.0);
 				SET_STATIC_PIXEL_SHADER_COMBO( FLOWMAP, bHasFlowmap );
 				SET_STATIC_PIXEL_SHADER_COMBO( FLOW_DEBUG, clamp( params[ FLOW_DEBUG ]->GetIntValue(), 0, 2 ) );
-				SET_STATIC_PIXEL_SHADER( watercheap_ps20b );
+				SET_STATIC_PIXEL_SHADER( WaterCheap_ps20b );
 			}
 			else
 			{
-				DECLARE_STATIC_PIXEL_SHADER( watercheap_ps20 );
+				DECLARE_STATIC_PIXEL_SHADER( WaterCheap_ps20 );
 				SET_STATIC_PIXEL_SHADER_COMBO( FRESNEL,  params[NOFRESNEL]->GetIntValue() == 0 );
 				SET_STATIC_PIXEL_SHADER_COMBO( BLEND,  bBlend );
 				SET_STATIC_PIXEL_SHADER_COMBO( REFRACTALPHA,  bRefraction );
@@ -650,7 +650,7 @@ BEGIN_VS_SHADER( Water_DX90,
 				SET_STATIC_PIXEL_SHADER_COMBO( MULTITEXTURE,fabs(Scroll1.x) > 0.0);
 				SET_STATIC_PIXEL_SHADER_COMBO( FLOWMAP, bHasFlowmap );
 				SET_STATIC_PIXEL_SHADER_COMBO( FLOW_DEBUG, clamp( params[ FLOW_DEBUG ]->GetIntValue(), 0, 2 ) );
-				SET_STATIC_PIXEL_SHADER( watercheap_ps20 );
+				SET_STATIC_PIXEL_SHADER( WaterCheap_ps20 );
 			}
 
 			// HDRFIXME: test cheap water!
@@ -745,20 +745,20 @@ BEGIN_VS_SHADER( Water_DX90,
 				pShaderAPI->SetVertexShaderConstant( VERTEX_SHADER_SHADER_SPECIFIC_CONST_3, vc0, 1 );
 			}
 
-			DECLARE_DYNAMIC_VERTEX_SHADER( watercheap_vs20 );
-			SET_DYNAMIC_VERTEX_SHADER( watercheap_vs20 );
+			DECLARE_DYNAMIC_VERTEX_SHADER( WaterCheap_vs20 );
+			SET_DYNAMIC_VERTEX_SHADER( WaterCheap_vs20 );
 
 			if( g_pHardwareConfig->SupportsPixelShaders_2_b() )
 			{
-				DECLARE_DYNAMIC_PIXEL_SHADER( watercheap_ps20b );
+				DECLARE_DYNAMIC_PIXEL_SHADER( WaterCheap_ps20b );
 				SET_DYNAMIC_PIXEL_SHADER_COMBO( HDRENABLED,  IsHDREnabled() );
-				SET_DYNAMIC_PIXEL_SHADER( watercheap_ps20b );
+				SET_DYNAMIC_PIXEL_SHADER( WaterCheap_ps20b );
 			}
 			else
 			{
-				DECLARE_DYNAMIC_PIXEL_SHADER( watercheap_ps20 );
+				DECLARE_DYNAMIC_PIXEL_SHADER( WaterCheap_ps20 );
 				SET_DYNAMIC_PIXEL_SHADER_COMBO( HDRENABLED,  IsHDREnabled() );
-				SET_DYNAMIC_PIXEL_SHADER( watercheap_ps20 );
+				SET_DYNAMIC_PIXEL_SHADER( WaterCheap_ps20 );
 			}
 		}
 		Draw();

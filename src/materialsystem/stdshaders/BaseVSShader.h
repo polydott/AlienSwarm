@@ -55,8 +55,8 @@
 		}														\
 		else													\
 		{														\
-			DECLARE_DYNAMIC_PIXEL_SHADER( basename##_ps20 );		\
-			SET_DYNAMIC_PIXEL_SHADER( basename##_ps20 );			\
+			DECLARE_DYNAMIC_PIXEL_SHADER( basename##_ps20 );	\
+			SET_DYNAMIC_PIXEL_SHADER( basename##_ps20 );		\
 		}
 
 

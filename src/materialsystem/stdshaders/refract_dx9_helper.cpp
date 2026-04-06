@@ -27,7 +27,6 @@ void InitParamsRefract_DX9( CBaseVSShader *pShader, IMaterialVar** params, const
 {
 	SET_FLAGS2( MATERIAL_VAR2_NEEDS_TANGENT_SPACES );
 	SET_FLAGS2( MATERIAL_VAR2_SUPPORTS_HW_SKINNING );
-	SET_FLAGS( MATERIAL_VAR_TRANSLUCENT );
 	if( !params[info.m_nEnvmapTint]->IsDefined() )
 	{
 		params[info.m_nEnvmapTint]->SetVecValue( 1.0f, 1.0f, 1.0f );
@@ -80,7 +79,20 @@ void InitParamsRefract_DX9( CBaseVSShader *pShader, IMaterialVar** params, const
 	{
 		params[info.m_nMagnifyScale]->SetIntValue( 0 );
 	}
-	SET_FLAGS2( MATERIAL_VAR2_NEEDS_POWER_OF_TWO_FRAME_BUFFER_TEXTURE );
+	if ( !params[info.m_nLocalRefract]->IsDefined() )
+	{
+		params[info.m_nLocalRefract]->SetIntValue( 0 );
+	}
+	if ( !params[info.m_nLocalRefractDepth]->IsDefined() )
+	{
+		params[info.m_nLocalRefractDepth]->SetFloatValue( 0.0f );
+	}
+	// we only need to see the world behind us if we're not refracting a static texture
+	if ( params[info.m_nLocalRefract]->GetIntValue() == 0 )
+	{
+		SET_FLAGS( MATERIAL_VAR_TRANSLUCENT );
+		SET_FLAGS2( MATERIAL_VAR2_NEEDS_POWER_OF_TWO_FRAME_BUFFER_TEXTURE );
+	}
 }
 
 void InitRefract_DX9( CBaseVSShader *pShader, IMaterialVar** params, Refract_DX9_Vars_t &info )
@@ -121,7 +133,8 @@ void DrawRefract_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDyna
 	bool bWriteZ = params[info.m_nNoWriteZ]->GetIntValue() == 0;
 	bool bMirrorAboutViewportEdges = IsX360() && ( info.m_nMirrorAboutViewportEdges != -1 ) && ( params[info.m_nMirrorAboutViewportEdges]->GetIntValue() != 0 );
 	bool bUseMagnification = params[info.m_nMagnifyEnable]->GetIntValue() != 0;
-	
+	bool bUseLocalRefraction = params[info.m_nLocalRefract]->GetIntValue() != 0;
+
 	if( blurAmount < 0 )
 	{
 		blurAmount = 0;
@@ -129,6 +142,10 @@ void DrawRefract_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDyna
 	else if( blurAmount > MAXBLUR )
 	{
 		blurAmount = MAXBLUR;
+	}
+	if ( bUseLocalRefraction )
+	{
+		blurAmount = 0;
 	}
 
 	BlendType_t nBlendType = pShader->EvaluateBlendRequirements( BASETEXTURE, true );
@@ -203,14 +220,14 @@ void DrawRefract_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDyna
 
 		pShaderShadow->VertexShaderVertexFormat( flags, nTexCoordCount, NULL, userDataSize );
 		
-		DECLARE_STATIC_VERTEX_SHADER( refract_vs20 );
+		DECLARE_STATIC_VERTEX_SHADER( Refract_vs20 );
 		SET_STATIC_VERTEX_SHADER_COMBO( MODEL,  bIsModel );
 		SET_STATIC_VERTEX_SHADER_COMBO( COLORMODULATE, bColorModulate );
-		SET_STATIC_VERTEX_SHADER( refract_vs20 );
+		SET_STATIC_VERTEX_SHADER( Refract_vs20 );
 
 		if ( g_pHardwareConfig->SupportsPixelShaders_2_b() )
 		{
-			DECLARE_STATIC_PIXEL_SHADER( refract_ps20b );
+			DECLARE_STATIC_PIXEL_SHADER( Refract_ps20b );
 			SET_STATIC_PIXEL_SHADER_COMBO( BLUR,  blurAmount );
 			SET_STATIC_PIXEL_SHADER_COMBO( FADEOUTONSILHOUETTE,  bFadeOutOnSilhouette );
 			SET_STATIC_PIXEL_SHADER_COMBO( CUBEMAP,  bHasEnvmap );
@@ -220,11 +237,12 @@ void DrawRefract_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDyna
 			SET_STATIC_PIXEL_SHADER_COMBO( SECONDARY_NORMAL, bSecondaryNormal );
 			SET_STATIC_PIXEL_SHADER_COMBO( MIRRORABOUTVIEWPORTEDGES, bMirrorAboutViewportEdges );
 			SET_STATIC_PIXEL_SHADER_COMBO( MAGNIFY, bUseMagnification );
-			SET_STATIC_PIXEL_SHADER( refract_ps20b );
+			SET_STATIC_PIXEL_SHADER_COMBO( LOCALREFRACT, bUseLocalRefraction );
+			SET_STATIC_PIXEL_SHADER( Refract_ps20b );
 		}
 		else
 		{
-			DECLARE_STATIC_PIXEL_SHADER( refract_ps20 );
+			DECLARE_STATIC_PIXEL_SHADER( Refract_ps20 );
 			SET_STATIC_PIXEL_SHADER_COMBO( BLUR,  blurAmount );
 			SET_STATIC_PIXEL_SHADER_COMBO( FADEOUTONSILHOUETTE,  bFadeOutOnSilhouette );
 			SET_STATIC_PIXEL_SHADER_COMBO( CUBEMAP,  bHasEnvmap );
@@ -234,7 +252,8 @@ void DrawRefract_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDyna
 			SET_STATIC_PIXEL_SHADER_COMBO( SECONDARY_NORMAL, bSecondaryNormal );
 			SET_STATIC_PIXEL_SHADER_COMBO( MIRRORABOUTVIEWPORTEDGES, bMirrorAboutViewportEdges );
 			SET_STATIC_PIXEL_SHADER_COMBO( MAGNIFY, bUseMagnification );
-			SET_STATIC_PIXEL_SHADER( refract_ps20 );
+			// LOCALREFRACT not supported!
+			SET_STATIC_PIXEL_SHADER( Refract_ps20 );
 		}
 		pShader->DefaultFog();
 		if( bMasked )
@@ -274,21 +293,21 @@ void DrawRefract_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDyna
 			pShader->BindTexture( SHADER_SAMPLER5, info.m_nRefractTintTexture, info.m_nRefractTintTextureFrame );
 		}
 
-		DECLARE_DYNAMIC_VERTEX_SHADER( refract_vs20 );
+		DECLARE_DYNAMIC_VERTEX_SHADER( Refract_vs20 );
 		SET_DYNAMIC_VERTEX_SHADER_COMBO( SKINNING,  pShaderAPI->GetCurrentNumBones() > 0 );
 		SET_DYNAMIC_VERTEX_SHADER_COMBO( COMPRESSED_VERTS, (int)vertexCompression );
-		SET_DYNAMIC_VERTEX_SHADER( refract_vs20 );
+		SET_DYNAMIC_VERTEX_SHADER( Refract_vs20 );
 
 		if ( g_pHardwareConfig->SupportsPixelShaders_2_b() )
 		{
-			DECLARE_DYNAMIC_PIXEL_SHADER( refract_ps20b );
+			DECLARE_DYNAMIC_PIXEL_SHADER( Refract_ps20b );
 			SET_DYNAMIC_PIXEL_SHADER_COMBO( WRITE_DEPTH_TO_DESTALPHA, bWriteZ && bFullyOpaque && pShaderAPI->ShouldWriteDepthToDestAlpha() );
-			SET_DYNAMIC_PIXEL_SHADER( refract_ps20b );
+			SET_DYNAMIC_PIXEL_SHADER( Refract_ps20b );
 		}
 		else
 		{
-			DECLARE_DYNAMIC_PIXEL_SHADER( refract_ps20 );
-			SET_DYNAMIC_PIXEL_SHADER( refract_ps20 );
+			DECLARE_DYNAMIC_PIXEL_SHADER( Refract_ps20 );
+			SET_DYNAMIC_PIXEL_SHADER( Refract_ps20 );
 		}
 
 		pShader->SetVertexShaderTextureTransform( VERTEX_SHADER_SHADER_SPECIFIC_CONST_1, info.m_nBumpTransform );	// 1 & 2
@@ -305,8 +324,19 @@ void DrawRefract_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDyna
 		pShader->SetPixelShaderConstantGammaToLinear( 1, info.m_nRefractTint );
 		pShader->SetPixelShaderConstant( 2, info.m_nEnvmapContrast );
 		pShader->SetPixelShaderConstant( 3, info.m_nEnvmapSaturation );
-		float c5[4] = { params[info.m_nRefractAmount]->GetFloatValue(), 
-			params[info.m_nRefractAmount]->GetFloatValue(), 0.0f, 0.0f };
+		float c5[4] =
+		{
+			params[info.m_nRefractAmount]->GetFloatValue(),
+			params[info.m_nLocalRefractDepth]->GetFloatValue(),
+			1.0f,
+			0.0f
+		};
+
+		if ( params[info.m_nBaseTexture]->IsTexture() )
+		{
+			ITexture *pTexture = params[info.m_nBaseTexture]->GetTextureValue();
+			c5[2] = float( pTexture->GetActualHeight() ) / float( pTexture->GetActualWidth() );
+		}
 
 		// Time % 1000
 		c5[3] = pShaderAPI->CurrentTime();

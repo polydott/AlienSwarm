@@ -11,10 +11,10 @@
 #include "teeth_flashlight_vs20.inc"
 #include "teeth_bump_vs20.inc"
 #include "teeth_ps20.inc"
-#include "teeth_ps20b.inc"
 #include "teeth_flashlight_ps20.inc"
-#include "teeth_flashlight_ps20b.inc"
 #include "teeth_bump_ps20.inc"
+#include "teeth_ps20b.inc"
+#include "teeth_flashlight_ps20b.inc"
 #include "teeth_bump_ps20b.inc"
 
 #ifndef _X360

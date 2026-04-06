@@ -55,13 +55,13 @@ BEGIN_VS_SHADER_FLAGS( Bloom, "Help for Bloom", SHADER_NOT_EDITABLE )
 
 			if( g_pHardwareConfig->SupportsPixelShaders_2_b() )
 			{
-				DECLARE_STATIC_PIXEL_SHADER( bloom_ps20b );
-				SET_STATIC_PIXEL_SHADER( bloom_ps20b );
+				DECLARE_STATIC_PIXEL_SHADER( Bloom_ps20b );
+				SET_STATIC_PIXEL_SHADER( Bloom_ps20b );
 			}
 			else
 			{
-				DECLARE_STATIC_PIXEL_SHADER( bloom_ps20 );
-				SET_STATIC_PIXEL_SHADER( bloom_ps20 );
+				DECLARE_STATIC_PIXEL_SHADER( Bloom_ps20 );
+				SET_STATIC_PIXEL_SHADER( Bloom_ps20 );
 			}
 		}
 
@@ -74,13 +74,13 @@ BEGIN_VS_SHADER_FLAGS( Bloom, "Help for Bloom", SHADER_NOT_EDITABLE )
 
 			if( g_pHardwareConfig->SupportsPixelShaders_2_b() )
 			{
-				DECLARE_DYNAMIC_PIXEL_SHADER( bloom_ps20b );
-				SET_DYNAMIC_PIXEL_SHADER( bloom_ps20b );
+				DECLARE_DYNAMIC_PIXEL_SHADER( Bloom_ps20b );
+				SET_DYNAMIC_PIXEL_SHADER( Bloom_ps20b );
 			}
 			else
 			{
-				DECLARE_DYNAMIC_PIXEL_SHADER( bloom_ps20 );
-				SET_DYNAMIC_PIXEL_SHADER( bloom_ps20 );
+				DECLARE_DYNAMIC_PIXEL_SHADER( Bloom_ps20 );
+				SET_DYNAMIC_PIXEL_SHADER( Bloom_ps20 );
 			}
 		}
 		Draw();

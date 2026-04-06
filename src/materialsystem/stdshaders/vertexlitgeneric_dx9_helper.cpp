@@ -37,7 +37,6 @@ static ConVar r_lightwarpidentity( "r_lightwarpidentity","0", FCVAR_CHEAT );
 static ConVar mat_phong( "mat_phong", "1" );
 static ConVar mat_displacementmap( "mat_displacementmap", "1", FCVAR_CHEAT );
 
-extern ConVar lm_test;
 static ConVar mat_force_vertexfog( "mat_force_vertexfog", "0", FCVAR_DEVELOPMENTONLY );
 
 static inline bool WantsPhongShader( IMaterialVar** params, const VertexLitGeneric_DX9_Vars_t &info )
@@ -259,6 +258,16 @@ void InitParamsVertexLitGeneric_DX9( CBaseVSShader *pShader, IMaterialVar** para
 	InitFloatParam( info.m_nTreeSwayScrumbleFalloffExp, params, 1.0f );
 	InitFloatParam( info.m_nTreeSwaySpeedLerpStart, params, 3.0f );
 	InitFloatParam( info.m_nTreeSwaySpeedLerpEnd, params, 6.0f );
+
+	if ( ( info.m_nTintMaskTexture != -1 ) && params[info.m_nTintMaskTexture]->IsDefined() )
+	{
+		InitIntParam( info.m_nBlendTintByBaseAlpha, params, 1 );
+	}
+
+	if ( info.m_nHSV != -1 && !params[info.m_nHSV]->IsDefined() )
+	{
+		params[info.m_nHSV]->SetVecValue( -1, -1, -1 );
+	}
 }
 
 
@@ -375,9 +384,14 @@ void InitVertexLitGeneric_DX9( CBaseVSShader *pShader, IMaterialVar** params, bo
 		pShader->LoadTexture( info.m_nDisplacementMap );
 	}
 
-	if ( info.m_nFoW != -1 && params[ info.m_nFoW ]->IsDefined() )
+	if ( ( info.m_nFoW != -1 ) && params[ info.m_nFoW ]->IsDefined() )
 	{
 		pShader->LoadTexture( info.m_nFoW );
+	}
+
+	if ( ( info.m_nTintMaskTexture != -1 ) && params[info.m_nTintMaskTexture]->IsDefined() )
+	{
+		pShader->LoadTexture( info.m_nTintMaskTexture );
 	}
 }
 
@@ -418,12 +432,13 @@ static void DrawVertexLitGeneric_DX9_Internal( CBaseVSShader *pShader, IMaterial
 	float fSinglePassFlashlight = bSinglePassFlashlight ? 1.0f : 0.0f;
 
 	bool hasDiffuseLighting = bVertexLitGeneric;
+	bool bHasHSV = g_pHardwareConfig->HasFastVertexTextures() && info.m_nHSV != -1 && params[info.m_nHSV]->GetVecValue()[0] >= 0.0f;
 
 	bool bShaderSrgbRead = ( IsX360() && IS_PARAM_DEFINED( info.m_nShaderSrgbRead360 ) && params[info.m_nShaderSrgbRead360]->GetIntValue() );
 
 	bool bIsAlphaTested = IS_FLAG_SET( MATERIAL_VAR_ALPHATEST ) != 0;
 	bool bHasDiffuseWarp = (!bHasFlashlight || bSinglePassFlashlight) && hasDiffuseLighting && (info.m_nDiffuseWarpTexture != -1) && params[info.m_nDiffuseWarpTexture]->IsTexture();
-
+	bool bHasTintMaskTexture = g_pHardwareConfig->HasFastVertexTextures() && IsTextureSet( info.m_nTintMaskTexture, params );
 
 	//bool bNoCull = IS_FLAG_SET( MATERIAL_VAR_NOCULL );
 	bool bFlashlightNoLambert = false;
@@ -704,6 +719,11 @@ static void DrawVertexLitGeneric_DX9_Internal( CBaseVSShader *pShader, IMaterial
 				pShaderShadow->EnableTexture( SHADER_SAMPLER9, true );
 			}
 
+			if ( bHasTintMaskTexture )
+			{
+				pShaderShadow->EnableTexture( SHADER_SAMPLER13, true );
+			}
+
 			if( bHasSelfIllum )
 			{
 				pShaderShadow->EnableTexture( SHADER_SAMPLER11, true );	// self illum mask
@@ -784,6 +804,8 @@ static void DrawVertexLitGeneric_DX9_Internal( CBaseVSShader *pShader, IMaterial
 						SET_STATIC_PIXEL_SHADER_COMBO( SHADER_SRGB_READ, bShaderSrgbRead );
 						SET_STATIC_PIXEL_SHADER_COMBO( STATICLIGHT3, bStaticLight3Streams );
 						SET_STATIC_PIXEL_SHADER_COMBO( WORLD_NORMAL, 0 );
+						SET_STATIC_PIXEL_SHADER_COMBO( TINTMASKTEXTURE, bHasTintMaskTexture );
+						SET_STATIC_PIXEL_SHADER_COMBO( HSV, bHasHSV );
 						SET_STATIC_PIXEL_SHADER( vertexlit_and_unlit_generic_bump_ps20b );
 					}
 					else // ps_2_0
@@ -836,6 +858,8 @@ static void DrawVertexLitGeneric_DX9_Internal( CBaseVSShader *pShader, IMaterial
 					SET_STATIC_PIXEL_SHADER_COMBO( SHADER_SRGB_READ, bShaderSrgbRead );
 					SET_STATIC_PIXEL_SHADER_COMBO( STATICLIGHT3, bStaticLight3Streams );
 					SET_STATIC_PIXEL_SHADER_COMBO( WORLD_NORMAL, nLightingPreviewMode == 3 );
+					SET_STATIC_PIXEL_SHADER_COMBO( TINTMASKTEXTURE, bHasTintMaskTexture );
+					SET_STATIC_PIXEL_SHADER_COMBO( HSV, bHasHSV );
 					SET_STATIC_PIXEL_SHADER( vertexlit_and_unlit_generic_bump_ps30 );
 				}
 #endif
@@ -901,6 +925,8 @@ static void DrawVertexLitGeneric_DX9_Internal( CBaseVSShader *pShader, IMaterial
 						SET_STATIC_PIXEL_SHADER_COMBO( DESATURATEWITHBASEALPHA, bDesaturateWithBaseAlpha );
 						SET_STATIC_PIXEL_SHADER_COMBO( LIGHTING_PREVIEW, nLightingPreviewMode );
 						SET_STATIC_PIXEL_SHADER_COMBO( FOW, bHasFoW );
+						SET_STATIC_PIXEL_SHADER_COMBO( TINTMASKTEXTURE, bHasTintMaskTexture );
+						SET_STATIC_PIXEL_SHADER_COMBO( HSV, bHasHSV );
 						SET_STATIC_PIXEL_SHADER( vertexlit_and_unlit_generic_ps20b );
 					}
 					else // ps_2_0
@@ -977,6 +1003,8 @@ static void DrawVertexLitGeneric_DX9_Internal( CBaseVSShader *pShader, IMaterial
 					SET_STATIC_PIXEL_SHADER_COMBO( DESATURATEWITHBASEALPHA, bDesaturateWithBaseAlpha );
 					SET_STATIC_PIXEL_SHADER_COMBO( LIGHTING_PREVIEW, nLightingPreviewMode );
 					SET_STATIC_PIXEL_SHADER_COMBO( FOW, bHasFoW );
+					SET_STATIC_PIXEL_SHADER_COMBO( TINTMASKTEXTURE, bHasTintMaskTexture );
+					SET_STATIC_PIXEL_SHADER_COMBO( HSV, bHasHSV );
 					SET_STATIC_PIXEL_SHADER( vertexlit_and_unlit_generic_ps30 );
 				}
 #endif
@@ -1037,6 +1065,10 @@ static void DrawVertexLitGeneric_DX9_Internal( CBaseVSShader *pShader, IMaterial
 				{
 					pContextData->m_SemiStaticCmdsOut.BindStandardTexture( SHADER_SAMPLER11, TEXTURE_BLACK );	// Bind dummy
 				}
+			}
+			if ( bHasTintMaskTexture )
+			{
+				pContextData->m_SemiStaticCmdsOut.BindTexture( pShader, SHADER_SAMPLER13, info.m_nTintMaskTexture );
 			}
 
 			if ( bSeamlessDetail || bSeamlessBase )
@@ -1347,6 +1379,10 @@ static void DrawVertexLitGeneric_DX9_Internal( CBaseVSShader *pShader, IMaterial
 				{
 					pContextData->m_SemiStaticCmdsOut.BindStandardTexture( SHADER_SAMPLER2, TEXTURE_GREY );
 				}
+				if ( bHasTintMaskTexture )
+				{
+					pContextData->m_SemiStaticCmdsOut.BindStandardTexture( SHADER_SAMPLER13, TEXTURE_GREY );
+				}
 			}
 			
 			if ( bHasBump || bHasDiffuseWarp )
@@ -1377,6 +1413,11 @@ static void DrawVertexLitGeneric_DX9_Internal( CBaseVSShader *pShader, IMaterial
 			else
 			{
 				pContextData->m_SemiStaticCmdsOut.SetPixelShaderConstant_W( 4, info.m_nSelfIllumTint, fBlendFactor );
+			}
+
+			if ( bHasHSV )
+			{
+				pContextData->m_SemiStaticCmdsOut.SetPixelShaderConstant( 46, params[info.m_nHSV]->GetVecValue(), 1 );
 			}
 			pContextData->m_SemiStaticCmdsOut.End();
 		}

@@ -9,10 +9,10 @@
 #include "BaseVSShader.h"
 #include "sky_vs20.inc"
 #include "sky_ps20.inc"
-#include "sky_ps20b.inc"
 #include "sky_hdr_compressed_ps20.inc"
-#include "sky_hdr_compressed_ps20b.inc"
 #include "sky_hdr_compressed_rgbs_ps20.inc"
+#include "sky_ps20b.inc"
+#include "sky_hdr_compressed_ps20b.inc"
 #include "sky_hdr_compressed_rgbs_ps20b.inc"
 
 #include "ConVar.h"

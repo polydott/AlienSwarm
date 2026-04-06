@@ -32,7 +32,7 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-static ConVar mat_fullbright( "mat_fullbright","0", FCVAR_CHEAT );
+static ConVar mat_fullbright( "mat_fullbright", "0", FCVAR_CHEAT );
 
 // NOTE: This is externed in BaseVSShader.h so it needs to be here
 ConVar r_flashlightbrightness( "r_flashlightbrightness", "0.25", FCVAR_CHEAT );
@@ -1175,3 +1175,12 @@ bool ToolsEnabled()
 	static bool bToolsMode = ( CommandLine()->CheckParm( "-tools" ) != NULL );
 	return bToolsMode;
 }
+
+static struct ForceShaderDllToStayLoaded
+{
+	ForceShaderDllToStayLoaded()
+	{
+		// add an extra reference to our DLL so the engine doesn't crash by unloading us early
+		Sys_LoadModule( "game_shader_dx9.dll" );
+	}
+} s_ForceShaderDllToStayLoaded;

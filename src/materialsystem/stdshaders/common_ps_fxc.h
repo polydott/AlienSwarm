@@ -190,7 +190,7 @@ float4 DecompressNormal( sampler NormalSampler, float2 tc, int nDecompressionMod
 HALF3 NormalizeWithCubemap( sampler normalizeSampler, HALF3 input )
 {
 //	return texCUBE( normalizeSampler, input ) * 2.0f - 1.0f;
-	return texCUBE( normalizeSampler, input );
+	return texCUBE( normalizeSampler, input ).xyz;
 }
 
 /*
@@ -664,6 +664,21 @@ float4 HSLtoRGB( float4 hsl )
    }
   
    return float4( r, g, b, 1.0f );
+}
+
+float3 rgb2hsv(float3 c)
+{
+	float4 P = (c.g < c.b) ? float4(c.bg, -1.0, 2.0 / 3.0) : float4(c.gb, 0.0, -1.0 / 3.0);
+	float4 Q = (c.r < P.x) ? float4(P.xyw, c.r) : float4(c.r, P.yzx);
+	float C = Q.x - min(Q.w, Q.y);
+	return float3(abs(Q.z + (Q.w - Q.y) / (6.0 * C + 0.00001)), C / (Q.x + 0.00001), Q.x);
+}
+
+float3 hsv2rgb(float3 c)
+{
+	float4 K = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+	float3 p = abs(frac(c.xxx + K.xyz) * 6.0 - K.www);
+	return c.z * lerp(K.xxx, saturate(p - K.xxx), c.y);
 }
 
 
