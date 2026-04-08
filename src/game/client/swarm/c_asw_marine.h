@@ -56,7 +56,7 @@ public:
 	// camera
 	virtual const QAngle& GetRenderAngles();
 	virtual int DrawModel( int flags, const RenderableInstance_t &instance );
-	//virtual bool ShouldDraw(void);
+	virtual bool	ShouldDraw();
 	virtual const QAngle& ASWEyeAngles( void );	
 	virtual void BuildTransformations( CStudioHdr *pHdr, Vector *pos, Quaternion q[], const matrix3x4_t& cameraTransform, int boneMask, CBoneBitList &boneComputed );	// for left hand IK	
 	Vector EyePosition(void);
@@ -64,7 +64,15 @@ public:
 	Vector m_vecCustomRenderOrigin;
 	virtual const Vector& GetRenderOrigin();
 	virtual void MouseOverEntity(C_BaseEntity* pEnt, Vector vecCrosshairAimingPos);
+
+	byte m_PrevRenderAlpha;
 		
+	// Specific queries about this player.
+	bool	InFirstPersonView();
+	bool	ShouldDrawThisPlayer();
+	bool	ShouldDrawLocalPlayer();
+	static bool	LocalPlayerInFirstPersonView();
+
 	// Is the player dead?
 	bool				IsMarineDead();
 

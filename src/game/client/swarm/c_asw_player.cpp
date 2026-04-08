@@ -748,8 +748,8 @@ void C_ASW_Player::CampaignLaunchMission(int iTargetMission)
 
 bool C_ASW_Player::ShouldDraw()			// we don't draw the player at all (only the npc's that he's remote controlling)
 {
-	if (m_hMarine.Get()!=NULL)
-		return false;
+	//if (m_hMarine.Get()!=NULL)
+		//return false;
 
 	return (g_DrawPlayer.GetBool());
 }
@@ -913,8 +913,6 @@ void C_ASW_Player::CloseBriefingFrame()
 			pChat->GetChatHistory()->ResetAllFades( false, false, 0 );
 	}
 }
-
-
 
 C_ASW_Marine* C_ASW_Player::GetMarine()
 {

@@ -21,17 +21,17 @@ extern ConVar asw_controls;		// asw: whether to use swarm mouse controls or not
 //-----------------------------------------------------------------------------
 void CASWInput::ActivateMouse (void)
 {
-	if ( m_fMouseInitialized )
-	{
+	//if ( m_fMouseInitialized )
+	//{
 		// asw store mouse pos
-		int current_posx, current_posy;
-		GetMousePos(current_posx, current_posy);
+		//int current_posx, current_posy;
+		//GetMousePos(current_posx, current_posy);
 
 		CInput::ActivateMouse();
 
 		// asw - move it back to original position
-		SetMousePos(current_posx, current_posy);
-	}
+		//SetMousePos(current_posx, current_posy);
+	//}
 }
 
 //-----------------------------------------------------------------------------
@@ -41,16 +41,16 @@ void CASWInput::ResetMouse( void )
 {
 	int x, y;
 
-	if (MarineDidPrice() || !asw_controls.GetBool())
-	{
-		GetMousePos(x, y);	// asw instead of GetWindowCenter, so mouse doesn't move 
-		SetMousePos(x, y);   //asw by price
-	}
-	else
-	{
+	//if (MarineDidPrice() || !asw_controls.GetBool())
+	//{
+		//GetMousePos(x, y);	// asw instead of GetWindowCenter, so mouse doesn't move 
+		//SetMousePos(x, y);   //asw by price
+	//}
+	//else
+	//{
 		GetWindowCenter(x, y);
 		SetMousePos(x, y);
-	}
+	//}
 }
 
 //-----------------------------------------------------------------------------
@@ -59,13 +59,13 @@ void CASWInput::ResetMouse( void )
 void CASWInput::AccumulateMouse( int nSlot )
 {
 	// asw store mouse pos
-	int current_posx, current_posy;
-	GetMousePos(current_posx, current_posy);
+	//int current_posx, current_posy;
+	//GetMousePos(current_posx, current_posy);
 
 	CInput::AccumulateMouse( nSlot );
 
 	// asw - move it back to original position
-	SetMousePos(current_posx, current_posy);
+	//SetMousePos(current_posx, current_posy);
 }
 
 //-----------------------------------------------------------------------------
@@ -77,33 +77,31 @@ void CASWInput::AccumulateMouse( int nSlot )
 //-----------------------------------------------------------------------------
 void CASWInput::ApplyMouse( int nSlot, QAngle& viewangles, CUserCmd *cmd, float mouse_x, float mouse_y )
 {
-	int current_posx, current_posy;
-	GetMousePos(current_posx, current_posy);
+	//int current_posx, current_posy;
+	//GetMousePos(current_posx, current_posy);
 
 	if (ASWInput()->ControllerModeActive())
 		return;
+
 	//by price
-	if (MarineDidPrice() || !asw_controls.GetBool())
-	{
-		TurnTowardMouse(viewangles, cmd);
+	//if (MarineDidPrice() || !asw_controls.GetBool())
+	//{
+		//TurnTowardMouse(viewangles, cmd);
 		// force the mouse to the center, so there's room to move
-		ResetMouse();
-		SetMousePos(current_posx, current_posy);	// asw - swarm wants it unmoved (have to reset to stop buttons locking)
-	}
+		//ResetMouse();
+		//SetMousePos(current_posx, current_posy);	// asw - swarm wants it unmoved (have to reset to stop buttons locking)
+	//}
 
 	CInput::ApplyMouse(nSlot, viewangles, cmd, mouse_x, mouse_y);
-
-	// force the mouse to the center, so there's room to move
-	ResetMouse();
 }
 
 void CASWInput::GetFullscreenMousePos( int *mx, int *my, int *unclampedx /*=NULL*/, int *unclampedy /*=NULL*/ )
 {
-	Assert( mx );
-	Assert( my );
+	Assert(mx);
+	Assert(my);
 
 	int x, y;
-	GetWindowCenter( x,  y );
+	GetWindowCenter(x, y);
 
 	int		current_posx, current_posy;
 
@@ -113,27 +111,29 @@ void CASWInput::GetFullscreenMousePos( int *mx, int *my, int *unclampedx /*=NULL
 	current_posy -= y;
 
 	// Now need to add back in mid point of viewport
+	//
+
 	int w, h;
-	vgui::surface()->GetScreenSize( w, h );
-	current_posx += w  / 2;
+	vgui::surface()->GetScreenSize(w, h);
+	current_posx += w / 2;
 	current_posy += h / 2;
 
-	if ( unclampedx )
+	if (unclampedx)
 	{
 		*unclampedx = current_posx;
 	}
 
-	if ( unclampedy )
+	if (unclampedy)
 	{
 		*unclampedy = current_posy;
 	}
 
 	// Clamp
-	current_posx = MAX( 0, current_posx );
-	current_posx = MIN( ScreenWidth(), current_posx );
+	current_posx = MAX(0, current_posx);
+	current_posx = MIN(ScreenWidth(), current_posx);
 
-	current_posy = MAX( 0, current_posy );
-	current_posy = MIN( ScreenHeight(), current_posy );
+	current_posy = MAX(0, current_posy);
+	current_posy = MIN(ScreenHeight(), current_posy);
 
 	*mx = current_posx;
 	*my = current_posy;

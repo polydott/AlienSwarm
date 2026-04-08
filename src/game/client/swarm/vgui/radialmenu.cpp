@@ -723,7 +723,7 @@ void CRadialMenu::Paint( void )
 			m_fadeStart = 0.0f;
 			m_fading = false;
 			SetVisible( false );
-			ASWInput()->SetCameraFixed( false );
+			ASWInput()->SetCameraFixed( true );
 			return;
 		}
 	}

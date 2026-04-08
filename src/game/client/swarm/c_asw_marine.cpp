@@ -40,6 +40,10 @@
 #include "asw_melee_system.h"
 #include "asw_marine_gamemovement.h"
 #include "game_timescale_shared.h"
+#include <iinput.h>
+#include <toolframework_client.h>
+#include "asw_input.h"
+
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -60,7 +64,6 @@ ConVar asw_flashlight_marine_ambient("asw_flashlight_marine_ambient", "0.1", FCV
 ConVar asw_flashlight_marine_lightscale("asw_flashlight_marine_lightscale", "1.0", FCVAR_CHEAT, "Light scale on the marine with flashlight on");
 ConVar asw_left_hand_ik("asw_left_hand_ik", "0", FCVAR_CHEAT, "IK the marine's left hand to his weapon");
 ConVar asw_marine_shoulderlight("asw_marine_shoulderlight", "2", 0, "Should marines have a shoulder light effect on them.");
-ConVar asw_hide_local_marine("asw_hide_local_marine", "1", FCVAR_CHEAT, "If enabled, your current marine will be invisible");
 ConVar asw_override_footstep_volume( "asw_override_footstep_volume", "0", FCVAR_CHEAT, "Overrides footstep volume instead of it being surface dependent" );
 ConVar asw_marine_object_motion_blur_scale( "asw_marine_object_motion_blur_scale", "0.0" );
 ConVar asw_damage_spark_rate( "asw_damage_spark_rate", "0.24", FCVAR_CHEAT, "Base number of seconds between spark sounds/effects at critical damage." );
@@ -458,6 +461,8 @@ C_ASW_Marine::C_ASW_Marine() :
 	m_iPowerupType = -1;
 	m_flPowerupExpireTime = -1;
 	m_bPowerupExpires = false;
+
+	m_PrevRenderAlpha = 255;
 }
 
 
@@ -778,23 +783,6 @@ void C_ASW_Marine::ClientThink()
 	{
 		// Predict
 		m_fInfestedTime -= deltatime;
-	}
-	
-	CASW_Marine* pMarine = GetLocalMarine();
-
-	if (asw_hide_local_marine.GetBool())
-	{
-		if (pMarine)
-		{
-			pMarine->SetRenderMode(kRenderNone);
-		}
-	}
-	else
-	{
-		if (pMarine)
-		{
-			pMarine->SetRenderMode(kRenderNormal);
-		}
 	}
 
 	//Vector light_pos = engine->GetClosestLightLocation(GetAbsOrigin());
@@ -1988,17 +1976,100 @@ void C_ASW_Marine::ReleaseFlashlightBeam( void )
 	}
 }
 
+bool C_ASW_Marine::ShouldDraw()
+{
+	return ShouldDrawThisPlayer() && BaseClass::ShouldDraw();
+}
+
 // EF_NODRAW isn't preventing the marine from being drawn, strangely.  So we do a visible check here before drawing.
 int C_ASW_Marine::DrawModel( int flags, const RenderableInstance_t &instance )
 {	
-	if (!IsVisible())
-		return 0;	
+	if (!ShouldDrawThisPlayer())
+	{
+		return 0;
+	}
 
-	int iResult = BaseClass::DrawModel(flags, instance);
+	return BaseClass::DrawModel(flags, instance);
+}
 
-	m_vecLastRenderedPos = GetRenderOrigin();
+//-----------------------------------------------------------------------------
+// Purpose: single place to decide whether the camera is in the first-person position
+//          NOTE - ShouldDrawLocalPlayer() can be true even if the camera is in the first-person position, e.g. in VR.
+//-----------------------------------------------------------------------------
+/*static*/ bool C_ASW_Marine::LocalPlayerInFirstPersonView()
+{
+	C_ASW_Marine* pLocalMarine = GetLocalMarine();
+	C_BasePlayer* pLocalPlayer = C_BasePlayer::GetLocalPlayer();
 
-	return iResult;
+	if (pLocalMarine)
+	{
+		return true;
+	}
+
+	if (pLocalMarine->m_Local.m_bForceLocalPlayerDraw)
+	{
+		return false;
+	}
+
+	int ObserverMode = pLocalPlayer->GetObserverMode();
+	if ((ObserverMode == OBS_MODE_NONE) || (ObserverMode == OBS_MODE_IN_EYE))
+	{
+		return !input->CAM_IsThirdPerson() && (!ToolsEnabled() || !ToolFramework_IsThirdPersonCamera());
+	}
+
+	// Not looking at the local player, e.g. in a replay in third person mode or freelook.
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: single place to decide whether the local player should draw
+//-----------------------------------------------------------------------------
+/*static*/ bool C_ASW_Marine::ShouldDrawLocalPlayer()
+{
+	return !LocalPlayerInFirstPersonView();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: single place to decide whether the camera is in the first-person position
+//          NOTE - ShouldDrawLocalPlayer() can be true even if the camera is in the first-person position, e.g. in VR.
+//-----------------------------------------------------------------------------
+bool C_ASW_Marine::InFirstPersonView()
+{
+	C_BasePlayer* pLocalPlayer = C_BasePlayer::GetLocalPlayer();
+	C_ASW_Marine* pLocalMarine = GetLocalMarine();
+
+	if (pLocalMarine == NULL)
+	{
+		return false;
+	}
+
+	if (pLocalPlayer->m_Local.m_bForceLocalPlayerDraw)
+	{
+		return false;
+	}
+
+	int ObserverMode = pLocalPlayer->GetObserverMode();
+	if ((ObserverMode == OBS_MODE_NONE) || (ObserverMode == OBS_MODE_IN_EYE))
+	{
+		return !input->CAM_IsThirdPerson() && (!ToolsEnabled() || !ToolFramework_IsThirdPersonCamera());
+	}
+
+	// Not looking at the local player, e.g. in a replay in third person mode or freelook.
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: single place to decide whether the player is being drawn with the standard model (i.e. not the viewmodel)
+//          NOTE - ShouldDrawLocalPlayer() can be true even if the camera is in the first-person position, e.g. in VR.
+//-----------------------------------------------------------------------------
+bool C_ASW_Marine::ShouldDrawThisPlayer()
+{
+	if (!InFirstPersonView())
+	{
+		return true;
+	}
+
+	return false;
 }
 
 void C_ASW_Marine::SetPoisoned(float f)

@@ -54,7 +54,6 @@ ConVar asw_vehicle_cam_dist( "asw_vehicle_cam_dist", "412", FCVAR_CHEAT );
 //static ConCommand firstperson( "firstperson", ::CAM_ToFirstPerson, "Switch to firstperson camera.", FCVAR_CHEAT );
 
 extern kbutton_t in_zoom;
-extern ConVar asw_hide_local_marine;
 extern ConVar cam_command;
 extern ConVar sv_cheats;
 extern ConVar joy_pan_camera;
@@ -287,32 +286,11 @@ void CASWInput::CAM_Think( void )
 
 void CASWInput::CAM_ToThirdPerson(void)
 {
-	asw_hide_local_marine.SetValue(0);
-
-	CASW_Player* pPlayer = ToASW_Player(C_BasePlayer::GetLocalPlayer());
-
-	if (pPlayer && pPlayer->GetMarine())
-	{
-		if (pPlayer->GetMarine()->IsEffectActive(EF_NODRAW))
-		{
-			pPlayer->GetMarine()->RemoveEffects(EF_NODRAW);
-		}
-	}
-
 	CInput::CAM_ToThirdPerson();
 }
 
 void CASWInput::CAM_ToFirstPerson(void)
 {
-	asw_hide_local_marine.SetValue(1);
-
-	CASW_Player* pPlayer = ToASW_Player(C_BasePlayer::GetLocalPlayer());
-
-	if (pPlayer && pPlayer->GetMarine())
-	{
-		pPlayer->GetMarine()->AddEffects(EF_NODRAW);
-	}
-
 	CInput::CAM_ToFirstPerson();
 }
 
